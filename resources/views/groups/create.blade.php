@@ -11,29 +11,51 @@
                 <div class="p-4 sm:p-8 text-gray-900">
 
                     <form action="{{ route('groups.store') }}" method="POST" class="space-y-6">
-                        @csrf <div>
+                        @csrf
+
+                        <div>
                             <label for="name" class="block text-sm font-medium text-gray-700">Nome do Grupo</label>
-                            <input type="text" name="name" id="name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            <input type="text" name="name" id="name" value="{{ old('name') }}" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+
+                            @error('name')
+                            <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                            @enderror
                         </div>
 
                         <div>
                             <label for="event_date" class="block text-sm font-medium text-gray-700">Data da Revelação</label>
-                            <input type="date" name="event_date" id="event_date" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            <input type="date" name="event_date" id="event_date" value="{{ old('event_date') }}" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+
+                            @error('event_date')
+                            <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                            @enderror
                         </div>
 
                         <div>
                             <label for="budget" class="block text-sm font-medium text-gray-700">Valor Máximo (R$)</label>
-                            <input type="number" name="budget" id="budget" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            <input type="number" name="budget" id="budget" step="0.01" value="{{ old('budget') }}" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+
+                            @error('budget')
+                            <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                            @enderror
                         </div>
 
                         <div>
                             <label for="description" class="block text-sm font-medium text-gray-700">Regras / Descrição</label>
-                            <textarea name="description" id="description" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+                            <textarea name="description" id="description" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('description') }}</textarea>
+
+                            @error('description')
+                            <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                            @enderror
                         </div>
 
                         <div>
                             <label for="wishlist" class="block text-sm font-medium text-gray-700">O que você gostaria de ganhar?</label>
-                            <textarea name="wishlist" id="wishlist" rows="2" placeholder="Ex: Livros, Vinho, Chinelo 42..." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+                            <textarea name="wishlist" id="wishlist" rows="2" placeholder="Ex: Livros, Vinho, Chinelo 42..." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('wishlist') }}</textarea>
+
+                            @error('wishlist')
+                            <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                            @enderror
                         </div>
 
                         <div class="flex items-center justify-end">
