@@ -37,5 +37,7 @@ test('users can logout', function () {
     $response = $this->actingAs($user)->post('/logout');
 
     $this->assertGuest();
-    $response->assertRedirect('/');
+
+    // CORREÇÃO: Agora esperamos ir para /login e não para /
+    $response->assertRedirect('/login');
 });
