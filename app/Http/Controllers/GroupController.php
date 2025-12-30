@@ -140,6 +140,31 @@ class GroupController extends Controller
         return back()->with('success', 'Sua lista de desejos foi atualizada!');
     }
 
+    // Exibe o formulário de edição
+    public function edit(Group $group)
+    {
+        if (auth()->id() !== $group->owner_id) {
+            abort(403, 'Apenas o administrador pode editar este grupo.');
+        }
+
+        return view('groups.edit', compact('group'));
+    }
+
+    // Processa a atualização dos dados
+    public function update(\App\Http\Requests\UpdateGroupRequest $request, Group $group)
+    {
+        if (auth()->id() !== $group->owner_id) {
+            abort(403, 'Apenas o administrador pode editar este grupo.');
+        }
+
+        $validated = $request->validated();
+
+        $group->update($validated);
+
+        return redirect()->route('groups.show', $group)
+            ->with('success', 'Informações do grupo atualizadas com sucesso!');
+    }
+
     public function destroy(Group $group)
     {
         if (auth()->id() !== $group->owner_id) {

@@ -8,8 +8,19 @@
     <div class="py-6 sm:py-12">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
 
-            <div class="bg-white p-4 sm:p-6 shadow sm:rounded-lg">
-                <p class="text-gray-600 text-base sm:text-lg mb-4">{{ $group->description }}</p>
+            <div class="bg-white p-4 sm:p-6 shadow sm:rounded-lg relative">
+
+                <div class="flex justify-between items-start mb-4">
+                    <p class="text-gray-600 text-base sm:text-lg flex-1">{{ $group->description }}</p>
+
+                    @if($group->owner_id === auth()->id())
+                    <a href="{{ route('groups.edit', $group) }}" class="ml-4 text-gray-400 hover:text-indigo-600 transition" title="Editar Informações">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                    </a>
+                    @endif
+                </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 bg-gray-50 p-4 rounded-lg">
                     <div class="flex justify-between md:block">
