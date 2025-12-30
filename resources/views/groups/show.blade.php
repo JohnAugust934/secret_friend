@@ -12,7 +12,6 @@
                 <p class="text-gray-600 text-base sm:text-lg mb-4">{{ $group->description }}</p>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 bg-gray-50 p-4 rounded-lg">
-
                     <div class="flex justify-between md:block">
                         <span class="block font-bold text-gray-500 text-xs sm:text-sm uppercase">Data da Revelação</span>
                         <span class="text-base sm:text-lg">{{ $group->event_date->format('d/m/Y') }}</span>
@@ -37,10 +36,8 @@
 
             <div class="bg-white p-6 shadow sm:rounded-lg">
                 <div class="bg-white p-6 shadow sm:rounded-lg mb-6 border-l-4 {{ $group->is_drawn ? 'border-green-500' : 'border-yellow-500' }}">
-
                     @if(!$group->is_drawn)
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-
                         <div class="mb-2 sm:mb-0">
                             <h3 class="text-lg font-bold text-gray-800">Sorteio Pendente</h3>
                             <p class="text-gray-600 text-sm sm:text-base">Aguardando o administrador realizar o sorteio.</p>
@@ -58,57 +55,28 @@
                     @else
                     <div>
                         <h3 class="text-lg font-bold text-green-700 mb-2">✅ Sorteio Realizado!</h3>
-
                         @if($myPair)
                         <div x-data="{ revealed: false }" class="mt-4">
-
-                            <div x-show="!revealed"
-                                @click="revealed = true"
-                                class="text-center py-10 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 cursor-pointer hover:bg-gray-200 transition group">
+                            <div x-show="!revealed" @click="revealed = true" class="text-center py-10 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 cursor-pointer hover:bg-gray-200 transition group">
                                 <p class="text-4xl mb-2 transition transform group-hover:scale-110">🙈</p>
                                 <p class="font-bold text-gray-600 text-lg">O sorteio foi realizado!</p>
                                 <p class="text-sm text-gray-500">Toque aqui para revelar seu amigo secreto</p>
-                                <p class="text-xs text-red-400 mt-2 font-bold uppercase tracking-wider">(Cuidado com os curiosos!)</p>
                             </div>
-
-                            <div x-show="revealed"
-                                style="display: none;"
-                                @click="revealed = false"
-                                class="bg-green-50 p-8 rounded-lg border border-green-200 text-center cursor-pointer hover:bg-green-100 transition animate-fade-in-down relative shadow-sm">
-
-                                <p class="text-xs text-green-600 uppercase font-bold mb-4 tracking-wide border border-green-200 rounded-full inline-block px-3 py-1 bg-white">
-                                    Toque em qualquer lugar para esconder 👆
-                                </p>
-
+                            <div x-show="revealed" style="display: none;" @click="revealed = false" class="bg-green-50 p-8 rounded-lg border border-green-200 text-center cursor-pointer hover:bg-green-100 transition animate-fade-in-down relative shadow-sm">
+                                <p class="text-xs text-green-600 uppercase font-bold mb-4 tracking-wide border border-green-200 rounded-full inline-block px-3 py-1 bg-white">Toque para esconder 👆</p>
                                 <p class="text-gray-600 text-sm uppercase font-bold mb-2">Sua missão secreta é presentear:</p>
-
                                 <div class="py-2">
-                                    <p class="text-4xl md:text-5xl text-green-800 font-black mb-1">
-                                        {{ $myPair->giftee->name }}
-                                    </p>
+                                    <p class="text-4xl md:text-5xl text-green-800 font-black mb-1">{{ $myPair->giftee->name }}</p>
                                     <p class="text-sm text-gray-600 font-medium">{{ $myPair->giftee->email }}</p>
                                 </div>
-
-                                @php
-                                $gifteeMember = $group->members->find($myPair->giftee_id);
-                                @endphp
-
+                                @php $gifteeMember = $group->members->find($myPair->giftee_id); @endphp
                                 @if($gifteeMember && $gifteeMember->pivot->wishlist)
                                 <div class="mt-6 bg-white p-4 rounded-xl shadow-sm inline-block text-left w-full max-w-md border-l-4 border-green-500">
-                                    <p class="text-xs text-gray-400 font-bold uppercase mb-1 flex items-center gap-1">
-                                        🎁 Dica de presente:
-                                    </p>
+                                    <p class="text-xs text-gray-400 font-bold uppercase mb-1 flex items-center gap-1">🎁 Dica de presente:</p>
                                     <p class="text-gray-800 text-lg italic leading-relaxed">"{{ $gifteeMember->pivot->wishlist }}"</p>
                                 </div>
-                                @else
-                                <p class="text-sm text-gray-400 italic mt-4">(Essa pessoa não preencheu a lista de desejos)</p>
                                 @endif
-
                             </div>
-                        </div>
-                        @else
-                        <div class="bg-red-50 text-red-600 p-4 rounded-lg border border-red-200 text-center">
-                            Você não participou deste sorteio.
                         </div>
                         @endif
                     </div>
@@ -119,46 +87,55 @@
                     @foreach($group->members as $member)
                     <li class="py-3">
                         <div class="flex items-center justify-between">
+
                             <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                                <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
                                     {{ substr($member->name, 0, 1) }}
                                 </div>
-                                <div>
-                                    <span class="block font-medium {{ $member->id === auth()->id() ? 'text-indigo-600' : 'text-gray-800' }}">
+                                <div class="min-w-0">
+                                    <span class="block font-medium truncate {{ $member->id === auth()->id() ? 'text-indigo-600' : 'text-gray-800' }}">
                                         {{ $member->name }}
-                                        @if($member->id === auth()->id() && !$group->is_drawn) (Você) @endif
+                                        @if($member->id === auth()->id()) (Você) @endif
+                                        @if($member->id === $group->owner_id) <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full ml-1">Dono</span> @endif
                                     </span>
-
-                                    <p class="text-sm text-gray-500 italic">
-                                        Deseja: "{{ $member->pivot->wishlist ?: 'Nada informado ainda' }}"
+                                    <p class="text-sm text-gray-500 italic truncate max-w-[150px] sm:max-w-md">
+                                        {{ $member->pivot->wishlist ?: 'Sem lista de desejos' }}
                                     </p>
                                 </div>
                             </div>
 
-                            @if($member->id === auth()->id() && !$group->is_drawn)
-                            <div x-data="{ open: false }" class="relative">
-                                <button @click="open = !open" class="text-sm text-indigo-600 hover:text-indigo-800 underline">
-                                    Editar
-                                </button>
+                            <div class="flex items-center gap-2">
 
-                                <div x-show="open"
-                                    @click.away="open = false"
-                                    class="absolute right-0 mt-2 w-72 bg-white border rounded shadow-xl z-50 p-4"
-                                    style="display: none;">
-
-                                    <form action="{{ route('groups.wishlist.update', $group) }}" method="POST">
-                                        @csrf
-                                        @method('PUT')
-                                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Alterar presente:</label>
-                                        <textarea name="wishlist" rows="2" class="w-full text-sm border-gray-300 rounded mb-2 focus:ring-indigo-500">{{ $member->pivot->wishlist }}</textarea>
-                                        <div class="flex justify-end gap-2">
-                                            <button type="button" @click="open = false" class="text-xs text-gray-500 hover:underline">Cancelar</button>
-                                            <button type="submit" class="bg-indigo-600 text-white text-xs px-2 py-1 rounded hover:bg-indigo-700">Salvar</button>
-                                        </div>
-                                    </form>
+                                @if($member->id === auth()->id() && !$group->is_drawn)
+                                <div x-data="{ open: false }" class="relative">
+                                    <button @click="open = !open" class="text-sm text-indigo-600 hover:text-indigo-800 underline">Editar</button>
+                                    <div x-show="open" @click.away="open = false" style="display: none;" class="absolute right-0 mt-2 w-72 bg-white border rounded shadow-xl z-50 p-4">
+                                        <form action="{{ route('groups.wishlist.update', $group) }}" method="POST">
+                                            @csrf @method('PUT')
+                                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Alterar presente:</label>
+                                            <textarea name="wishlist" rows="2" class="w-full text-sm border-gray-300 rounded mb-2">{{ $member->pivot->wishlist }}</textarea>
+                                            <div class="flex justify-end gap-2">
+                                                <button type="button" @click="open = false" class="text-xs text-gray-500">Cancelar</button>
+                                                <button type="submit" class="bg-indigo-600 text-white text-xs px-2 py-1 rounded">Salvar</button>
+                                            </div>
+                                        </form>
+                                    </div>
                                 </div>
+                                @endif
+
+                                @if($group->owner_id === auth()->id() && $member->id !== auth()->id() && !$group->is_drawn)
+                                <form action="{{ route('groups.members.destroy', [$group, $member]) }}" method="POST" onsubmit="return confirm('Tem certeza que deseja remover {{ $member->name }} do grupo?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-50 transition" title="Remover participante">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
+                                </form>
+                                @endif
+
                             </div>
-                            @endif
                         </div>
                     </li>
                     @endforeach
@@ -169,17 +146,11 @@
             <div class="bg-white p-6 shadow sm:rounded-lg border-2 border-red-50 mt-8">
                 <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
                     <div>
-                        <h3 class="text-lg font-bold text-red-600 flex items-center gap-2">
-                            🚨 Zona de Perigo
-                        </h3>
-                        <p class="text-gray-600 text-sm mt-1">
-                            Deseja apagar este grupo? Todas as informações e sorteios serão removidos permanentemente.
-                        </p>
+                        <h3 class="text-lg font-bold text-red-600 flex items-center gap-2">🚨 Zona de Perigo</h3>
+                        <p class="text-gray-600 text-sm mt-1">Deseja apagar este grupo? Todas as informações serão removidas.</p>
                     </div>
-
-                    <form action="{{ route('groups.destroy', $group) }}" method="POST" onsubmit="return confirm('TEM CERTEZA ABSOLUTA? Esta ação não pode ser desfeita e apagará todo o histórico do grupo.');">
-                        @csrf
-                        @method('DELETE')
+                    <form action="{{ route('groups.destroy', $group) }}" method="POST" onsubmit="return confirm('TEM CERTEZA ABSOLUTA? Esta ação não pode ser desfeita.');">
+                        @csrf @method('DELETE')
                         <button type="submit" class="bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border border-red-200 font-bold py-2 px-4 rounded transition text-sm w-full sm:w-auto">
                             🗑️ Excluir Grupo
                         </button>

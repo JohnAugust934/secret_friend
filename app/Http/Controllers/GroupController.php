@@ -150,4 +150,27 @@ class GroupController extends Controller
 
         return redirect()->route('dashboard')->with('success', 'Grupo excluído com sucesso!');
     }
+
+    public function removeMember(Group $group, \App\Models\User $user)
+    {
+        // 1. Segurança: Só o dono pode remover
+        if (auth()->id() !== $group->owner_id) {
+            abort(403, 'Apenas o administrador pode remover membros.');
+        }
+
+        // 2. Segurança: Não pode remover se já foi sorteado
+        if ($group->is_drawn) {
+            return back()->with('error', 'Não é possível remover membros após o sorteio.');
+        }
+
+        // 3. Segurança: O dono não se pode remover a si mesmo por aqui
+        if ($user->id === $group->owner_id) {
+            return back()->with('error', 'O administrador não pode ser removido.');
+        }
+
+        // Remove a relação na tabela pivot
+        $group->members()->detach($user->id);
+
+        return back()->with('success', "{$user->name} foi removido do grupo.");
+    }
 }
