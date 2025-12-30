@@ -60,7 +60,6 @@
                         <h3 class="text-lg font-bold text-green-700 mb-2">✅ Sorteio Realizado!</h3>
 
                         @if($myPair)
-                        @if($myPair)
                         <div x-data="{ revealed: false }" class="mt-4">
 
                             <div x-show="!revealed"
@@ -111,9 +110,6 @@
                         <div class="bg-red-50 text-red-600 p-4 rounded-lg border border-red-200 text-center">
                             Você não participou deste sorteio.
                         </div>
-                        @endif
-                        @else
-                        <p class="text-red-500">Você não participou deste sorteio.</p>
                         @endif
                     </div>
                     @endif
@@ -168,6 +164,29 @@
                     @endforeach
                 </ul>
             </div>
+
+            @if($group->owner_id === auth()->id())
+            <div class="bg-white p-6 shadow sm:rounded-lg border-2 border-red-50 mt-8">
+                <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-red-600 flex items-center gap-2">
+                            🚨 Zona de Perigo
+                        </h3>
+                        <p class="text-gray-600 text-sm mt-1">
+                            Deseja apagar este grupo? Todas as informações e sorteios serão removidos permanentemente.
+                        </p>
+                    </div>
+
+                    <form action="{{ route('groups.destroy', $group) }}" method="POST" onsubmit="return confirm('TEM CERTEZA ABSOLUTA? Esta ação não pode ser desfeita e apagará todo o histórico do grupo.');">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border border-red-200 font-bold py-2 px-4 rounded transition text-sm w-full sm:w-auto">
+                            🗑️ Excluir Grupo
+                        </button>
+                    </form>
+                </div>
+            </div>
+            @endif
 
         </div>
     </div>
