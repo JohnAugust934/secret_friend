@@ -1,172 +1,180 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ $group->name }}
-        </h2>
+        <div class="flex justify-between items-center">
+            <h2 class="font-bold text-2xl text-gray-800 leading-tight">
+                {{ $group->name }}
+            </h2>
+            <a href="{{ route('dashboard') }}" class="text-sm text-gray-500 hover:text-indigo-600 flex items-center">
+                &larr; Voltar
+            </a>
+        </div>
     </x-slot>
 
-    <div class="py-6 sm:py-12">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+    <div class="py-8">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
 
-            <div class="bg-white p-4 sm:p-6 shadow sm:rounded-lg relative">
-
-                <div class="flex justify-between items-start mb-4">
-                    <p class="text-gray-600 text-base sm:text-lg flex-1">{{ $group->description }}</p>
-
-                    @if($group->owner_id === auth()->id())
-                    <a href="{{ route('groups.edit', $group) }}" class="ml-4 text-gray-400 hover:text-indigo-600 transition" title="Editar Informações">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                    </a>
-                    @endif
+            <div class="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+                <div class="bg-gradient-to-r from-indigo-50 to-purple-50 p-6 sm:p-8 border-b border-gray-100">
+                    <div class="flex justify-between items-start">
+                        <p class="text-gray-700 text-lg leading-relaxed flex-1">{{ $group->description }}</p>
+                        @if($group->owner_id === auth()->id())
+                        <a href="{{ route('groups.edit', $group) }}" class="ml-4 p-2 bg-white rounded-lg shadow-sm text-gray-400 hover:text-indigo-600 transition" title="Editar Informações">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                        </a>
+                        @endif
+                    </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 bg-gray-50 p-4 rounded-lg">
-                    <div class="flex justify-between md:block">
-                        <span class="block font-bold text-gray-500 text-xs sm:text-sm uppercase">Data da Revelação</span>
-                        <span class="text-base sm:text-lg">{{ $group->event_date->format('d/m/Y') }}</span>
+                <div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-gray-100">
+                    <div class="p-6 text-center">
+                        <span class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Data da Revelação</span>
+                        <span class="text-xl font-bold text-gray-800">{{ $group->event_date->format('d/m/Y') }}</span>
                     </div>
-
-                    <div class="flex justify-between md:block">
-                        <span class="block font-bold text-gray-500 text-xs sm:text-sm uppercase">Valor Máximo</span>
-                        <span class="text-base sm:text-lg text-green-600 font-bold">R$ {{ number_format($group->budget, 2, ',', '.') }}</span>
+                    <div class="p-6 text-center">
+                        <span class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Valor Máximo</span>
+                        <span class="text-xl font-bold text-green-600">R$ {{ number_format($group->budget, 2, ',', '.') }}</span>
                     </div>
-
-                    <div class="col-span-1 md:col-span-2 mt-2 md:mt-0">
-                        <span class="block font-bold text-gray-500 text-xs sm:text-sm uppercase mb-1">Link de Convite</span>
-                        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-                            <code class="w-full sm:w-auto bg-gray-200 px-3 py-2 rounded font-mono text-sm sm:text-lg select-all border border-gray-300 break-all text-center sm:text-left">
+                    <div class="p-6 flex flex-col justify-center">
+                        <span class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 text-center">Convite</span>
+                        <div class="flex items-center gap-2 justify-center">
+                            <code class="bg-gray-100 px-3 py-1 rounded text-sm text-gray-600 select-all border border-gray-200">
                                 {{ url('/invite/' . $group->invite_token) }}
                             </code>
-                            <span class="text-xs text-gray-500 mt-1 sm:mt-0 mx-auto sm:mx-0">(Toque para copiar)</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="bg-white p-6 shadow sm:rounded-lg">
-                <div class="bg-white p-6 shadow sm:rounded-lg mb-6 border-l-4 {{ $group->is_drawn ? 'border-green-500' : 'border-yellow-500' }}">
-                    @if(!$group->is_drawn)
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <div class="mb-2 sm:mb-0">
-                            <h3 class="text-lg font-bold text-gray-800">Sorteio Pendente</h3>
-                            <p class="text-gray-600 text-sm sm:text-base">Aguardando o administrador realizar o sorteio.</p>
+            <div class="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 sm:p-8 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-2 h-full {{ $group->is_drawn ? 'bg-green-500' : 'bg-yellow-400' }}"></div>
+
+                @if(!$group->is_drawn)
+                <div class="flex flex-col sm:flex-row justify-between items-center gap-6 ml-4">
+                    <div>
+                        <h3 class="text-xl font-bold text-gray-800 mb-1">Sorteio Pendente ⏳</h3>
+                        <p class="text-gray-500">Aguardando o administrador realizar o sorteio.</p>
+                    </div>
+                    @if($group->owner_id === auth()->id())
+                    <form action="{{ route('groups.draw', $group) }}" method="POST" onsubmit="return confirm('Tem certeza? Isso não pode ser desfeito.')">
+                        @csrf
+                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5 flex items-center gap-2">
+                            <span>🎲</span> Realizar Sorteio
+                        </button>
+                    </form>
+                    @endif
+                </div>
+                @else
+                <div class="ml-4">
+                    <h3 class="text-xl font-bold text-green-700 mb-4 flex items-center gap-2">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        Sorteio Realizado!
+                    </h3>
+
+                    @if($myPair)
+                    <div x-data="{ revealed: false }">
+                        <div x-show="!revealed" @click="revealed = true" class="text-center py-12 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border-2 border-dashed border-gray-300 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition group">
+                            <div class="text-5xl mb-4 group-hover:scale-110 transition duration-300">🕵️</div>
+                            <p class="font-bold text-gray-700 text-lg">Quem será o seu amigo secreto?</p>
+                            <p class="text-sm text-gray-500 mt-1">Toque aqui para revelar</p>
                         </div>
 
-                        @if($group->owner_id === auth()->id())
-                        <form action="{{ route('groups.draw', $group) }}" method="POST" onsubmit="return confirm('Tem certeza? Isso não pode ser desfeito.')" class="w-full sm:w-auto">
-                            @csrf
-                            <button type="submit" class="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded shadow flex items-center justify-center gap-2 text-base">
-                                🎁 Realizar Sorteio
+                        <div x-show="revealed" style="display: none;" class="bg-green-50 p-10 rounded-xl border border-green-200 text-center relative animate-fade-in">
+                            <button @click="revealed = false" class="absolute top-4 right-4 text-green-400 hover:text-green-700">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path>
+                                </svg>
                             </button>
-                        </form>
-                        @endif
-                    </div>
-                    @else
-                    <div>
-                        <h3 class="text-lg font-bold text-green-700 mb-2">✅ Sorteio Realizado!</h3>
-                        @if($myPair)
-                        <div x-data="{ revealed: false }" class="mt-4">
-                            <div x-show="!revealed" @click="revealed = true" class="text-center py-10 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 cursor-pointer hover:bg-gray-200 transition group">
-                                <p class="text-4xl mb-2 transition transform group-hover:scale-110">🙈</p>
-                                <p class="font-bold text-gray-600 text-lg">O sorteio foi realizado!</p>
-                                <p class="text-sm text-gray-500">Toque aqui para revelar seu amigo secreto</p>
+                            <p class="text-xs text-green-600 uppercase font-bold tracking-widest mb-4">Sua Missão</p>
+                            <div class="mb-6">
+                                <p class="text-gray-500 text-sm mb-1">Você tirou:</p>
+                                <p class="text-4xl sm:text-5xl text-gray-800 font-black tracking-tight">{{ $myPair->giftee->name }}</p>
                             </div>
-                            <div x-show="revealed" style="display: none;" @click="revealed = false" class="bg-green-50 p-8 rounded-lg border border-green-200 text-center cursor-pointer hover:bg-green-100 transition animate-fade-in-down relative shadow-sm">
-                                <p class="text-xs text-green-600 uppercase font-bold mb-4 tracking-wide border border-green-200 rounded-full inline-block px-3 py-1 bg-white">Toque para esconder 👆</p>
-                                <p class="text-gray-600 text-sm uppercase font-bold mb-2">Sua missão secreta é presentear:</p>
-                                <div class="py-2">
-                                    <p class="text-4xl md:text-5xl text-green-800 font-black mb-1">{{ $myPair->giftee->name }}</p>
-                                    <p class="text-sm text-gray-600 font-medium">{{ $myPair->giftee->email }}</p>
-                                </div>
-                                @php $gifteeMember = $group->members->find($myPair->giftee_id); @endphp
-                                @if($gifteeMember && $gifteeMember->pivot->wishlist)
-                                <div class="mt-6 bg-white p-4 rounded-xl shadow-sm inline-block text-left w-full max-w-md border-l-4 border-green-500">
-                                    <p class="text-xs text-gray-400 font-bold uppercase mb-1 flex items-center gap-1">🎁 Dica de presente:</p>
-                                    <p class="text-gray-800 text-lg italic leading-relaxed">"{{ $gifteeMember->pivot->wishlist }}"</p>
-                                </div>
-                                @endif
+
+                            @php $gifteeMember = $group->members->find($myPair->giftee_id); @endphp
+                            @if($gifteeMember && $gifteeMember->pivot->wishlist)
+                            <div class="bg-white p-4 rounded-lg shadow-sm inline-block max-w-md w-full border-l-4 border-green-400">
+                                <p class="text-xs text-gray-400 uppercase font-bold mb-1">Dica de presente:</p>
+                                <p class="text-gray-800 italic">"{{ $gifteeMember->pivot->wishlist }}"</p>
                             </div>
+                            @endif
                         </div>
-                        @endif
                     </div>
                     @endif
                 </div>
+                @endif
+            </div>
 
-                <ul class="divide-y divide-gray-100">
+            <div class="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 sm:p-8">
+                <h3 class="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+                    <span class="bg-indigo-100 text-indigo-600 w-6 h-6 rounded-full flex items-center justify-center text-xs">{{ $group->members->count() }}</span>
+                    Participantes
+                </h3>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     @foreach($group->members as $member)
-                    <li class="py-3">
-                        <div class="flex items-center justify-between">
-
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
-                                    {{ substr($member->name, 0, 1) }}
-                                </div>
-                                <div class="min-w-0">
-                                    <span class="block font-medium truncate {{ $member->id === auth()->id() ? 'text-indigo-600' : 'text-gray-800' }}">
-                                        {{ $member->name }}
-                                        @if($member->id === auth()->id()) (Você) @endif
-                                        @if($member->id === $group->owner_id) <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full ml-1">Dono</span> @endif
-                                    </span>
-                                    <p class="text-sm text-gray-500 italic truncate max-w-[150px] sm:max-w-md">
-                                        {{ $member->pivot->wishlist ?: 'Sem lista de desejos' }}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div class="flex items-center gap-2">
-
-                                @if($member->id === auth()->id() && !$group->is_drawn)
-                                <div x-data="{ open: false }" class="relative">
-                                    <button @click="open = !open" class="text-sm text-indigo-600 hover:text-indigo-800 underline">Editar</button>
-                                    <div x-show="open" @click.away="open = false" style="display: none;" class="absolute right-0 mt-2 w-72 bg-white border rounded shadow-xl z-50 p-4">
-                                        <form action="{{ route('groups.wishlist.update', $group) }}" method="POST">
-                                            @csrf @method('PUT')
-                                            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Alterar presente:</label>
-                                            <textarea name="wishlist" rows="2" class="w-full text-sm border-gray-300 rounded mb-2">{{ $member->pivot->wishlist }}</textarea>
-                                            <div class="flex justify-end gap-2">
-                                                <button type="button" @click="open = false" class="text-xs text-gray-500">Cancelar</button>
-                                                <button type="submit" class="bg-indigo-600 text-white text-xs px-2 py-1 rounded">Salvar</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                                @endif
-
-                                @if($group->owner_id === auth()->id() && $member->id !== auth()->id() && !$group->is_drawn)
-                                <form action="{{ route('groups.members.destroy', [$group, $member]) }}" method="POST" onsubmit="return confirm('Tem certeza que deseja remover {{ $member->name }} do grupo?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-50 transition" title="Remover participante">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
-                                </form>
-                                @endif
-
-                            </div>
+                    <div class="flex items-center p-3 rounded-xl border {{ $member->id === auth()->id() ? 'border-indigo-200 bg-indigo-50' : 'border-gray-100 bg-white' }}">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold shrink-0 shadow-md">
+                            {{ substr($member->name, 0, 1) }}
                         </div>
-                    </li>
+                        <div class="ml-3 flex-1 min-w-0">
+                            <p class="text-sm font-bold text-gray-800 truncate">
+                                {{ $member->name }}
+                                @if($member->id === $group->owner_id) 👑 @endif
+                            </p>
+                            <p class="text-xs text-gray-500 truncate italic">
+                                {{ $member->pivot->wishlist ?: 'Sem desejo definido' }}
+                            </p>
+                        </div>
+
+                        <div class="flex items-center">
+                            @if($member->id === auth()->id() && !$group->is_drawn)
+                            <div x-data="{ open: false }" class="relative">
+                                <button @click="open = !open" class="text-indigo-500 hover:text-indigo-700 p-1">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                                    </svg>
+                                </button>
+                                <div x-show="open" @click.away="open = false" style="display: none;" class="absolute right-0 mt-2 w-64 bg-white border rounded-xl shadow-xl z-50 p-4">
+                                    <form action="{{ route('groups.wishlist.update', $group) }}" method="POST">
+                                        @csrf @method('PUT')
+                                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">O que gostaria de ganhar?</label>
+                                        <textarea name="wishlist" rows="2" class="w-full text-sm border-gray-300 rounded-lg mb-2 focus:ring-indigo-500 focus:border-indigo-500">{{ $member->pivot->wishlist }}</textarea>
+                                        <div class="flex justify-end gap-2">
+                                            <button type="submit" class="bg-indigo-600 text-white text-xs px-3 py-1.5 rounded-lg font-bold">Salvar</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                            @endif
+
+                            @if($group->owner_id === auth()->id() && $member->id !== auth()->id() && !$group->is_drawn)
+                            <form action="{{ route('groups.members.destroy', [$group, $member]) }}" method="POST" onsubmit="return confirm('Remover {{ $member->name }}?');">
+                                @csrf @method('DELETE')
+                                <button type="submit" class="text-gray-300 hover:text-red-500 p-1 ml-1 transition">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                </button>
+                            </form>
+                            @endif
+                        </div>
+                    </div>
                     @endforeach
-                </ul>
+                </div>
             </div>
 
             @if($group->owner_id === auth()->id())
-            <div class="bg-white p-6 shadow sm:rounded-lg border-2 border-red-50 mt-8">
-                <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <div>
-                        <h3 class="text-lg font-bold text-red-600 flex items-center gap-2">🚨 Zona de Perigo</h3>
-                        <p class="text-gray-600 text-sm mt-1">Deseja apagar este grupo? Todas as informações serão removidas.</p>
-                    </div>
-                    <form action="{{ route('groups.destroy', $group) }}" method="POST" onsubmit="return confirm('TEM CERTEZA ABSOLUTA? Esta ação não pode ser desfeita.');">
-                        @csrf @method('DELETE')
-                        <button type="submit" class="bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border border-red-200 font-bold py-2 px-4 rounded transition text-sm w-full sm:w-auto">
-                            🗑️ Excluir Grupo
-                        </button>
-                    </form>
-                </div>
+            <div class="text-center pt-8 pb-4">
+                <form action="{{ route('groups.destroy', $group) }}" method="POST" onsubmit="return confirm('TEM CERTEZA ABSOLUTA? Esta ação apagará todo o histórico do grupo.');">
+                    @csrf @method('DELETE')
+                    <button type="submit" class="text-red-400 hover:text-red-600 text-sm underline hover:no-underline transition">
+                        Excluir este grupo permanentemente
+                    </button>
+                </form>
             </div>
             @endif
 
