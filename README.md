@@ -13,7 +13,7 @@ Um sistema web moderno, seguro e fácil de usar para organizar eventos de **Amig
 
 O projeto está rodando ao vivo e pode ser acessado no link abaixo:
 
-👉 **[https://sfriend.on3digital.com.br/](sfriend.on3digital.com.br)**
+👉 **[sfriend.on3digital.com.br](https://sfriend.on3digital.com.br/)**
 
 ---
 
