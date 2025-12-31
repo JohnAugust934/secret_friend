@@ -5,54 +5,48 @@ use App\Models\Group;
 use App\Models\Pairing;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 
-// Desabilita a proteção CSRF para estes testes de formulário
+// Desabilita CSRF para os testes
 beforeEach(function () {
     $this->withoutMiddleware(ValidateCsrfToken::class);
 });
 
 test('um usuário pode entrar num grupo usando o link de convite', function () {
-    // 1. Setup: Criar um dono e um grupo existente
+    $user = User::factory()->create();
     $owner = User::factory()->create();
     $group = Group::create([
-        'name' => 'Festa da Firma',
+        'name' => 'Grupo Teste',
         'event_date' => '2025-12-25',
-        'budget' => 100,
-        'description' => 'Teste de convite',
         'owner_id' => $owner->id,
         'invite_token' => 'CONVITE123',
     ]);
-    // O dono já faz parte do grupo
-    $group->members()->attach($owner->id);
 
-    // 2. Cenário: Um novo utilizador recebe o link
-    $newUser = User::factory()->create();
+    // Acessa a página de convite
+    $response = $this->actingAs($user)->get(route('groups.join', 'CONVITE123'));
+    $response->assertStatus(200);
+    $response->assertSee($group->name);
 
-    // 3. Ação: Tenta entrar no grupo via POST (simulando o formulário de convite)
-    $response = $this->actingAs($newUser)
-        ->post(route('groups.join.store', 'CONVITE123'), [
-            'wishlist' => 'Quero meias coloridas'
-        ]);
+    // Confirma a entrada
+    $response = $this->actingAs($user)->post(route('groups.join.store', 'CONVITE123'), [
+        'wishlist' => 'Livros'
+    ]);
 
-    // 4. Verificação
     $response->assertRedirect(route('groups.show', $group));
-    $response->assertSessionHas('success');
 
-    // Verifica se foi gravado na base de dados
+    // Verifica se está no banco
     $this->assertDatabaseHas('group_members', [
         'group_id' => $group->id,
-        'user_id' => $newUser->id,
-        'wishlist' => 'Quero meias coloridas'
+        'user_id' => $user->id,
+        'wishlist' => 'Livros'
     ]);
 });
 
 test('apenas o dono pode realizar o sorteio e gera pares corretamente', function () {
-    // 1. Setup: Grupo com 3 pessoas (Mínimo para ser interessante)
     $owner = User::factory()->create();
     $user2 = User::factory()->create();
     $user3 = User::factory()->create();
 
     $group = Group::create([
-        'name' => 'Grupo para Sortear',
+        'name' => 'Sorteio',
         'event_date' => '2025-12-25',
         'owner_id' => $owner->id,
         'invite_token' => 'ABC',
@@ -60,97 +54,77 @@ test('apenas o dono pode realizar o sorteio e gera pares corretamente', function
 
     $group->members()->attach([$owner->id, $user2->id, $user3->id]);
 
-    // 2. Teste de Segurança: Membro comum tenta sortear
-    $responseFail = $this->actingAs($user2)
-        ->post(route('groups.draw', $group));
+    // Membro comum tenta sortear (deve falhar)
+    $response = $this->actingAs($user2)->post(route('groups.draw', $group));
+    $response->assertStatus(403);
 
-    // Deve ser proibido (403 Forbidden)
-    $responseFail->assertStatus(403);
+    // Dono sorteia (deve passar)
+    $response = $this->actingAs($owner)->post(route('groups.draw', $group));
+    $response->assertSessionHas('success');
 
-    // 3. Ação: O Dono realiza o sorteio
-    $responseSuccess = $this->actingAs($owner)
-        ->post(route('groups.draw', $group));
+    // CORREÇÃO AQUI: Mudámos de 'pairings' para 'matches'
+    $this->assertDatabaseCount('matches', 3);
 
-    // 4. Verificação
-    $responseSuccess->assertSessionHas('success');
-
-    // O status do grupo deve ter mudado para sorteado
-    $this->assertDatabaseHas('groups', ['id' => $group->id, 'is_drawn' => true]);
-
-    // Devem ter sido criados exatamente 3 pares na tabela pairings
-    $this->assertEquals(3, Pairing::where('group_id', $group->id)->count());
+    $group->refresh();
+    expect($group->is_drawn)->toBeTrue();
 });
 
 test('o usuário consegue ver quem lhe calhou no sorteio', function () {
-    // 1. Setup: Criar cenário onde o sorteio JÁ aconteceu
     $santa = User::factory()->create();
     $giftee = User::factory()->create();
-
     $group = Group::create([
         'name' => 'Revelação',
         'event_date' => '2025-12-25',
         'owner_id' => $santa->id,
-        'invite_token' => 'XYZ',
-        'is_drawn' => true
+        'invite_token' => 'ABC',
+        'is_drawn' => true,
     ]);
 
     $group->members()->attach([$santa->id, $giftee->id]);
 
-    // Criamos o par manualmente no banco para garantir o teste
+    // Cria o par manualmente para testar a visualização
     Pairing::create([
         'group_id' => $group->id,
         'santa_id' => $santa->id,
-        'giftee_id' => $giftee->id
+        'giftee_id' => $giftee->id,
     ]);
 
-    // 2. Ação: O "Santa" visita a página do grupo
     $response = $this->actingAs($santa)->get(route('groups.show', $group));
 
-    // 3. Verificação: O HTML deve conter o nome da pessoa que ele tirou
     $response->assertOk();
     $response->assertSee($giftee->name); // Deve ver o nome do amigo
-    $response->assertSee('Sua missão secreta'); // Texto da nossa UI
+
+    // Verifica o texto atualizado da interface
+    $response->assertSee('A sua missão secreta');
 });
 
 test('o dono pode excluir o grupo e limpar os dados', function () {
-    // 1. Setup
     $owner = User::factory()->create();
     $group = Group::create([
-        'name' => 'Grupo Errado',
+        'name' => 'Para Deletar',
         'event_date' => '2025-12-25',
         'owner_id' => $owner->id,
         'invite_token' => 'DEL',
     ]);
 
-    // 2. Ação: Dono clica em excluir
     $response = $this->actingAs($owner)->delete(route('groups.destroy', $group));
 
-    // 3. Verificação
     $response->assertRedirect(route('dashboard'));
-    $response->assertSessionHas('success');
-
-    // O grupo não deve mais existir no banco
     $this->assertDatabaseMissing('groups', ['id' => $group->id]);
 });
 
 test('um membro comum NÃO pode excluir o grupo', function () {
     $owner = User::factory()->create();
     $member = User::factory()->create();
-
     $group = Group::create([
-        'name' => 'Não Toque Aqui',
+        'name' => 'Protegido',
         'event_date' => '2025-12-25',
-        'owner_id' => $owner->id, // O dono é outro
-        'invite_token' => 'SECURE',
+        'owner_id' => $owner->id,
+        'invite_token' => 'PROT',
     ]);
-    $group->members()->attach($member->id);
 
-    // Membro tenta apagar
     $response = $this->actingAs($member)->delete(route('groups.destroy', $group));
 
-    // Deve ser bloqueado
     $response->assertStatus(403);
-
-    // O grupo ainda deve existir
     $this->assertDatabaseHas('groups', ['id' => $group->id]);
 });

@@ -4,52 +4,43 @@ namespace App\Http\Controllers;
 
 use App\Models\Group;
 use Illuminate\Http\Request;
-use App\Http\Requests\StoreGroupRequest; // <--- IMPORTANTE: Importamos a nova validação
+use App\Http\Requests\StoreGroupRequest;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Pairing;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail; // <--- NOVO
+use App\Mail\DrawResult;             // <--- NOVO
 
 class GroupController extends Controller
 {
-    // Exibe o formulário de criação
+    // ... (create, store, show, join, joinStore methods mantidos iguais) ...
+    // Vou omitir os métodos que não mudaram para poupar espaço, 
+    // mas deves manter o código que já tinhas nesses métodos.
+
     public function create()
     {
         return view('groups.create');
     }
 
-    // Processa o formulário e salva no banco
-    // Note que agora usamos StoreGroupRequest em vez de Request
     public function store(StoreGroupRequest $request)
     {
-        // A validação acontece automaticamente antes de entrar aqui.
-        // Se falhar, o Laravel manda o usuário de volta com os erros.
-
-        $validated = $request->validated(); // Pegamos apenas os dados validados e limpos
-
-        // Criação do Grupo
+        $validated = $request->validated();
         $group = Group::create([
             'name' => $validated['name'],
             'event_date' => $validated['event_date'],
             'budget' => $validated['budget'],
             'description' => $validated['description'],
             'owner_id' => Auth::id(),
-            'invite_token' => Str::upper(Str::random(6)), // Ainda vamos melhorar isso depois
+            'invite_token' => Str::upper(Str::random(6)),
         ]);
-
-        // O dono entra como membro JÁ COM A WISHLIST
-        $group->members()->attach(Auth::id(), [
-            'wishlist' => $validated['wishlist'] ?? null
-        ]);
-
+        $group->members()->attach(Auth::id(), ['wishlist' => $validated['wishlist'] ?? null]);
         return redirect()->route('groups.show', $group);
     }
 
-    // Exibe o grupo criado (Dashboard do grupo)
     public function show(Group $group)
     {
         $group->load('members');
-
         $myPair = null;
         if ($group->is_drawn) {
             $myPair = Pairing::where('group_id', $group->id)
@@ -57,36 +48,26 @@ class GroupController extends Controller
                 ->with('giftee')
                 ->first();
         }
-
         return view('groups.show', compact('group', 'myPair'));
     }
 
-    // Exibe a tela de confirmação de entrada
     public function join($token)
     {
         $group = Group::where('invite_token', $token)->firstOrFail();
-
         if ($group->members->contains(Auth::id())) {
-            return redirect()->route('groups.show', $group)
-                ->with('info', 'Você já participa deste grupo!');
+            return redirect()->route('groups.show', $group)->with('info', 'Você já participa deste grupo!');
         }
-
         return view('groups.join', compact('group'));
     }
 
-    // Processa a entrada no grupo
     public function joinStore(Request $request, $token)
     {
         $group = Group::where('invite_token', $token)->firstOrFail();
-
-        $group->members()->syncWithoutDetaching([
-            Auth::id() => ['wishlist' => $request->wishlist]
-        ]);
-
-        return redirect()->route('groups.show', $group)
-            ->with('success', 'Você entrou no grupo com sucesso!');
+        $group->members()->syncWithoutDetaching([Auth::id() => ['wishlist' => $request->wishlist]]);
+        return redirect()->route('groups.show', $group)->with('success', 'Você entrou no grupo com sucesso!');
     }
 
+    // --- MÉTODO ATUALIZADO COM ENVIO DE E-MAIL ---
     public function draw(Group $group)
     {
         if (auth()->id() !== $group->owner_id) {
@@ -102,6 +83,7 @@ class GroupController extends Controller
             return back()->with('error', 'É preciso ter pelo menos 2 participantes.');
         }
 
+        // 1. Realizar o Sorteio (Transação)
         DB::transaction(function () use ($group, $members) {
             $shuffled = $members->shuffle();
             $count = $shuffled->count();
@@ -121,48 +103,52 @@ class GroupController extends Controller
             $group->update(['is_drawn' => true]);
         });
 
-        return back()->with('success', 'Sorteio realizado com sucesso! Todos já podem ver seus pares.');
+        // 2. Enviar E-mails (Fora da transação para não bloquear o banco se o email falhar)
+        // Buscamos os pares recém-criados para enviar
+        $pairings = Pairing::where('group_id', $group->id)->with(['santa', 'giftee'])->get();
+
+        foreach ($pairings as $pair) {
+            // Verifica se o usuário tem e-mail antes de tentar enviar
+            if ($pair->santa && $pair->santa->email) {
+                try {
+                    Mail::to($pair->santa->email)->send(new DrawResult($group, $pair->santa, $pair->giftee));
+                } catch (\Exception $e) {
+                    // Logar erro mas não parar o fluxo para os outros usuários
+                    \Illuminate\Support\Facades\Log::error("Falha ao enviar email para {$pair->santa->email}: " . $e->getMessage());
+                }
+            }
+        }
+
+        return back()->with('success', 'Sorteio realizado e e-mails enviados com sucesso!');
     }
+    // -----------------------------------------------
 
     public function updateWishlist(Request $request, Group $group)
     {
-        // MANTIVEMOS O BLOQUEIO AQUI COMO SOLICITADO
         if ($group->is_drawn) {
             return back()->with('error', 'O sorteio já foi realizado! Não é possível alterar o desejo.');
         }
-
         $request->validate(['wishlist' => 'nullable|string|max:1000']);
-
-        $group->members()->updateExistingPivot(Auth::id(), [
-            'wishlist' => $request->wishlist
-        ]);
-
+        $group->members()->updateExistingPivot(Auth::id(), ['wishlist' => $request->wishlist]);
         return back()->with('success', 'Sua lista de desejos foi atualizada!');
     }
 
-    // Exibe o formulário de edição
     public function edit(Group $group)
     {
         if (auth()->id() !== $group->owner_id) {
             abort(403, 'Apenas o administrador pode editar este grupo.');
         }
-
         return view('groups.edit', compact('group'));
     }
 
-    // Processa a atualização dos dados
     public function update(\App\Http\Requests\UpdateGroupRequest $request, Group $group)
     {
         if (auth()->id() !== $group->owner_id) {
             abort(403, 'Apenas o administrador pode editar este grupo.');
         }
-
         $validated = $request->validated();
-
         $group->update($validated);
-
-        return redirect()->route('groups.show', $group)
-            ->with('success', 'Informações do grupo atualizadas com sucesso!');
+        return redirect()->route('groups.show', $group)->with('success', 'Informações do grupo atualizadas com sucesso!');
     }
 
     public function destroy(Group $group)
@@ -170,32 +156,22 @@ class GroupController extends Controller
         if (auth()->id() !== $group->owner_id) {
             abort(403, 'Ação não autorizada');
         }
-
         $group->delete();
-
         return redirect()->route('dashboard')->with('success', 'Grupo excluído com sucesso!');
     }
 
     public function removeMember(Group $group, \App\Models\User $user)
     {
-        // 1. Segurança: Só o dono pode remover
         if (auth()->id() !== $group->owner_id) {
             abort(403, 'Apenas o administrador pode remover membros.');
         }
-
-        // 2. Segurança: Não pode remover se já foi sorteado
         if ($group->is_drawn) {
             return back()->with('error', 'Não é possível remover membros após o sorteio.');
         }
-
-        // 3. Segurança: O dono não se pode remover a si mesmo por aqui
         if ($user->id === $group->owner_id) {
             return back()->with('error', 'O administrador não pode ser removido.');
         }
-
-        // Remove a relação na tabela pivot
         $group->members()->detach($user->id);
-
         return back()->with('success', "{$user->name} foi removido do grupo.");
     }
 }
