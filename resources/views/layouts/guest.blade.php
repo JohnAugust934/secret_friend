@@ -18,19 +18,32 @@
 
     <div x-data="{ loading: false }"
         x-init="
-                document.addEventListener('submit', () => { loading = true });
-                window.addEventListener('beforeunload', () => { loading = true });
                 window.addEventListener('pageshow', (event) => {
                     if (event.persisted) { loading = false; }
+                });
+
+                document.addEventListener('submit', () => { loading = true });
+
+                document.addEventListener('click', (event) => {
+                    const link = event.target.closest('a');
+                    if (!link) return;
+                    const href = link.getAttribute('href');
+                    const target = link.getAttribute('target');
+                    if (!href || href.startsWith('#') || href.startsWith('javascript:') || target === '_blank') return;
+                    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+                    
+                    if (href.startsWith(window.location.origin) || href.startsWith('/')) {
+                        loading = true;
+                    }
                 });
              ">
 
         <div x-show="loading"
             style="display: none;"
-            x-transition:enter="transition ease-out duration-300"
+            x-transition:enter="transition ease-out duration-200"
             x-transition:enter-start="opacity-0"
             x-transition:enter-end="opacity-100"
-            x-transition:leave="transition ease-in duration-200"
+            x-transition:leave="transition ease-in duration-150"
             x-transition:leave-start="opacity-100"
             x-transition:leave-end="opacity-0"
             class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gray-900 bg-opacity-80 backdrop-blur-sm">
@@ -43,7 +56,6 @@
         </div>
 
         <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 bg-gradient-to-br from-indigo-100 via-purple-50 to-white px-4">
-
             <div class="mb-6 text-center">
                 <a href="/" class="flex flex-col items-center group">
                     <div class="bg-white p-3 rounded-full shadow-md mb-2 group-hover:scale-110 transition duration-300">
@@ -55,7 +67,6 @@
 
             <div class="w-full sm:max-w-md mt-2 px-6 py-8 bg-white shadow-2xl rounded-2xl border border-gray-100 relative overflow-hidden">
                 <div class="absolute -top-10 -right-10 w-32 h-32 bg-indigo-50 rounded-full opacity-50 pointer-events-none"></div>
-
                 {{ $slot }}
             </div>
 

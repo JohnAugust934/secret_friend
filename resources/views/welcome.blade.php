@@ -12,39 +12,70 @@
 
 <body class="font-sans antialiased bg-gradient-to-br from-indigo-100 via-purple-50 to-white min-h-screen flex items-center justify-center p-6">
 
-    <div class="max-w-4xl w-full bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row border border-white/50">
+    <div x-data="{ loading: false }"
+        x-init="
+                window.addEventListener('pageshow', (event) => {
+                    if (event.persisted) { loading = false; }
+                });
+                
+                // Deteta cliques nos botões 'Entrar', 'Registar', 'Painel'
+                document.addEventListener('click', (event) => {
+                    const link = event.target.closest('a');
+                    if (!link) return;
+                    const href = link.getAttribute('href');
+                    const target = link.getAttribute('target');
+                    if (!href || href.startsWith('#') || href.startsWith('javascript:') || target === '_blank') return;
+                    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+                    
+                    if (href.startsWith(window.location.origin) || href.startsWith('/')) {
+                        loading = true;
+                    }
+                });
+             ">
 
-        <div class="w-full md:w-1/2 bg-indigo-600 p-12 flex flex-col justify-between text-white relative overflow-hidden">
-            <div class="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
-            <div class="relative z-10">
-                <div class="text-5xl mb-6">🎁</div>
-                <h1 class="text-4xl font-bold mb-4 tracking-tight">A magia do Natal, simplificada.</h1>
-                <p class="text-indigo-100 text-lg leading-relaxed">
-                    Esqueça os papeizinhos. Organize sorteios justos, rápidos e divertidos para a sua família, amigos ou empresa.
-                </p>
-            </div>
-            <div class="relative z-10 mt-8 text-sm text-indigo-200">
-                &copy; {{ date('Y') }} Amigo Secreto da Galera
-            </div>
+        <div x-show="loading"
+            style="display: none;"
+            class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gray-900 bg-opacity-80 backdrop-blur-sm">
+            <svg class="animate-spin h-16 w-16 text-indigo-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
         </div>
 
-        <div class="w-full md:w-1/2 p-12 flex flex-col justify-center items-center text-center">
-            <h2 class="text-2xl font-bold text-gray-800 mb-2">Vamos começar?</h2>
-            <p class="text-gray-500 mb-8">Entre ou crie uma conta para gerir os seus grupos.</p>
+        <div class="max-w-4xl w-full bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row border border-white/50 relative z-10">
 
-            <div class="w-full space-y-4 max-w-xs">
-                @auth
-                <a href="{{ url('/dashboard') }}" class="block w-full py-3 px-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition transform hover:-translate-y-1">
-                    Ir para o Painel
-                </a>
-                @else
-                <a href="{{ route('login') }}" class="block w-full py-3 px-6 bg-white border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 font-bold rounded-xl transition">
-                    Entrar
-                </a>
-                <a href="{{ route('register') }}" class="block w-full py-3 px-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition transform hover:-translate-y-1">
-                    Criar Conta Grátis
-                </a>
-                @endauth
+            <div class="w-full md:w-1/2 bg-indigo-600 p-12 flex flex-col justify-between text-white relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+                <div class="relative z-10">
+                    <div class="text-5xl mb-6">🎁</div>
+                    <h1 class="text-4xl font-bold mb-4 tracking-tight">A magia do Natal, simplificada.</h1>
+                    <p class="text-indigo-100 text-lg leading-relaxed">
+                        Esqueça os papeizinhos. Organize sorteios justos, rápidos e divertidos para a sua família, amigos ou empresa.
+                    </p>
+                </div>
+                <div class="relative z-10 mt-8 text-sm text-indigo-200">
+                    &copy; {{ date('Y') }} Amigo Secreto da Galera
+                </div>
+            </div>
+
+            <div class="w-full md:w-1/2 p-12 flex flex-col justify-center items-center text-center">
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">Vamos começar?</h2>
+                <p class="text-gray-500 mb-8">Entre ou crie uma conta para gerir os seus grupos.</p>
+
+                <div class="w-full space-y-4 max-w-xs">
+                    @auth
+                    <a href="{{ url('/dashboard') }}" class="block w-full py-3 px-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition transform hover:-translate-y-1">
+                        Ir para o Painel
+                    </a>
+                    @else
+                    <a href="{{ route('login') }}" class="block w-full py-3 px-6 bg-white border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 font-bold rounded-xl transition">
+                        Entrar
+                    </a>
+                    <a href="{{ route('register') }}" class="block w-full py-3 px-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition transform hover:-translate-y-1">
+                        Criar Conta Grátis
+                    </a>
+                    @endauth
+                </div>
             </div>
         </div>
     </div>
