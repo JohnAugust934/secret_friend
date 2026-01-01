@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class Group extends Model
 {
-    /** @use HasFactory<\Database\Factories\GroupFactory> */
     use HasFactory;
 
     protected $fillable = [
@@ -20,6 +19,7 @@ class Group extends Model
         'is_drawn',
     ];
 
+    // ISTO É ESSENCIAL PARA O POSTGRES
     protected $casts = [
         'event_date' => 'datetime',
         'is_drawn' => 'boolean',

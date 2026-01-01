@@ -92,10 +92,8 @@ class DrawService
                 Pairing::insert($pairs);
             }
 
-            // LIMPEZA: Usando a forma "Eloquent" padrão em vez de DB::raw.
-            // O Laravel vai converter true para o formato correto do banco (1 ou t).
-            $group->is_drawn = true;
-            $group->save();
+            // CORREÇÃO: DB::raw('true') força o valor SQL literal, que o Postgres aceita sem erro.
+            $group->update(['is_drawn' => DB::raw('true')]);
         });
     }
 }

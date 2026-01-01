@@ -30,7 +30,10 @@ test('a rota parcial de membros retorna a lista correta de usuários', function 
     $response->assertDontSee('<html');
 
     // Verifica se retornou os nomes dos membros
-    $response->assertSee($owner->name);
+    // CORREÇÃO: Como é o próprio usuário logado, ele vê "Você" em vez do nome dele
+    $response->assertSee('Você');
+
+    // O outro membro continua aparecendo com o nome normal
     $response->assertSee('Novo Membro');
 });
 

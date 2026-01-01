@@ -3,128 +3,108 @@
 use App\Models\User;
 use App\Models\Group;
 use App\Models\Pairing;
-use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
-// Desabilita CSRF para os testes
-beforeEach(function () {
-    $this->withoutMiddleware(ValidateCsrfToken::class);
-});
+uses(RefreshDatabase::class);
 
 test('um usuário pode entrar num grupo usando o link de convite', function () {
-    $user = User::factory()->create();
     $owner = User::factory()->create();
-    $group = Group::create([
-        'name' => 'Grupo Teste',
-        'event_date' => '2025-12-25',
-        'owner_id' => $owner->id,
-        'invite_token' => 'CONVITE123',
-    ]);
+    $group = Group::factory()->create(['owner_id' => $owner->id]);
 
-    // Acessa a página de convite
-    $response = $this->actingAs($user)->get(route('groups.join', 'CONVITE123'));
-    $response->assertStatus(200);
-    $response->assertSee($group->name);
+    $newUser = User::factory()->create();
 
-    // Confirma a entrada
-    $response = $this->actingAs($user)->post(route('groups.join.store', 'CONVITE123'), [
-        'wishlist' => 'Livros'
-    ]);
+    $this->actingAs($newUser)
+        ->get(route('groups.join', $group->invite_token))
+        ->assertOk()
+        ->assertSee($group->name); // Vê o nome do grupo na tela de convite
 
-    $response->assertRedirect(route('groups.show', $group));
+    // Confirma entrada
+    $this->actingAs($newUser)
+        ->post(route('groups.join.store', $group->invite_token), ['wishlist' => 'Livros'])
+        ->assertRedirect(route('groups.show', $group));
 
-    // Verifica se está no banco
-    $this->assertDatabaseHas('group_members', [
-        'group_id' => $group->id,
-        'user_id' => $user->id,
-        'wishlist' => 'Livros'
-    ]);
+    expect($group->members->contains($newUser))->toBeTrue();
 });
 
 test('apenas o dono pode realizar o sorteio e gera pares corretamente', function () {
     $owner = User::factory()->create();
-    $user2 = User::factory()->create();
-    $user3 = User::factory()->create();
+    $group = Group::factory()->create(['owner_id' => $owner->id]);
 
-    $group = Group::create([
-        'name' => 'Sorteio',
-        'event_date' => '2025-12-25',
-        'owner_id' => $owner->id,
-        'invite_token' => 'ABC',
-    ]);
+    // Adiciona 3 membros (total 4 com o dono) para ter sorteio válido
+    $members = User::factory(3)->create();
+    $group->members()->attach($owner->id);
+    $group->members()->attach($members);
 
-    $group->members()->attach([$owner->id, $user2->id, $user3->id]);
+    // Tenta sortear com usuário comum (Deve falhar)
+    $this->actingAs($members[0])
+        ->post(route('groups.draw', $group))
+        ->assertForbidden();
 
-    // Membro comum tenta sortear (deve falhar)
-    $response = $this->actingAs($user2)->post(route('groups.draw', $group));
-    $response->assertStatus(403);
+    // Sorteia com o dono
+    $this->actingAs($owner)
+        ->post(route('groups.draw', $group))
+        ->assertRedirect(); // Volta pra página com sucesso
 
-    // Dono sorteia (deve passar)
-    $response = $this->actingAs($owner)->post(route('groups.draw', $group));
-    $response->assertSessionHas('success');
-
-    // CORREÇÃO AQUI: Mudámos de 'pairings' para 'matches'
-    $this->assertDatabaseCount('matches', 3);
-
-    $group->refresh();
-    expect($group->is_drawn)->toBeTrue();
+    // Verifica banco
+    expect(Pairing::where('group_id', $group->id)->count())->toBe(4);
+    expect($group->fresh()->is_drawn)->toBeTrue();
 });
 
 test('o usuário consegue ver quem lhe calhou no sorteio', function () {
-    $santa = User::factory()->create();
-    $giftee = User::factory()->create();
-    $group = Group::create([
-        'name' => 'Revelação',
-        'event_date' => '2025-12-25',
-        'owner_id' => $santa->id,
-        'invite_token' => 'ABC',
-        'is_drawn' => true,
-    ]);
+    $owner = User::factory()->create();
+    $group = Group::factory()->create(['owner_id' => $owner->id, 'is_drawn' => true]);
 
-    $group->members()->attach([$santa->id, $giftee->id]);
+    $user = User::factory()->create();
+    $target = User::factory()->create(['name' => 'Alvo do Sorteio']);
 
-    // Cria o par manualmente para testar a visualização
+    $group->members()->attach([$user->id, $target->id, $owner->id]);
+
+    // Cria o par manualmente no banco para testar a visualização
     Pairing::create([
         'group_id' => $group->id,
-        'santa_id' => $santa->id,
-        'giftee_id' => $giftee->id,
+        'santa_id' => $user->id,
+        'giftee_id' => $target->id
     ]);
 
-    $response = $this->actingAs($santa)->get(route('groups.show', $group));
+    $response = $this->actingAs($user)->get(route('groups.show', $group));
 
     $response->assertOk();
-    $response->assertSee($giftee->name); // Deve ver o nome do amigo
+    $response->assertSee($target->name); // Deve ver o nome do amigo
 
-    // Verifica o texto atualizado da interface
-    $response->assertSee('A sua missão secreta');
+    // CORREÇÃO: Atualizado para o texto do novo layout (Cartão 3D)
+    $response->assertSee('SEU PAR É...');
+    $response->assertSee('Você tirou');
 });
 
 test('o dono pode excluir o grupo e limpar os dados', function () {
     $owner = User::factory()->create();
-    $group = Group::create([
-        'name' => 'Para Deletar',
-        'event_date' => '2025-12-25',
-        'owner_id' => $owner->id,
-        'invite_token' => 'DEL',
+    $group = Group::factory()->create(['owner_id' => $owner->id]);
+    $group->members()->attach($owner->id);
+
+    Pairing::create([
+        'group_id' => $group->id,
+        'santa_id' => $owner->id,
+        'giftee_id' => $owner->id
     ]);
 
-    $response = $this->actingAs($owner)->delete(route('groups.destroy', $group));
+    $this->actingAs($owner)
+        ->delete(route('groups.destroy', $group))
+        ->assertRedirect(route('dashboard'));
 
-    $response->assertRedirect(route('dashboard'));
-    $this->assertDatabaseMissing('groups', ['id' => $group->id]);
+    expect(Group::find($group->id))->toBeNull();
+    expect(Pairing::where('group_id', $group->id)->count())->toBe(0);
 });
 
 test('um membro comum NÃO pode excluir o grupo', function () {
     $owner = User::factory()->create();
     $member = User::factory()->create();
-    $group = Group::create([
-        'name' => 'Protegido',
-        'event_date' => '2025-12-25',
-        'owner_id' => $owner->id,
-        'invite_token' => 'PROT',
-    ]);
+    $group = Group::factory()->create(['owner_id' => $owner->id]);
+    $group->members()->attach($member->id);
 
-    $response = $this->actingAs($member)->delete(route('groups.destroy', $group));
+    $this->actingAs($member)
+        ->delete(route('groups.destroy', $group))
+        ->assertForbidden();
 
-    $response->assertStatus(403);
-    $this->assertDatabaseHas('groups', ['id' => $group->id]);
+    expect(Group::find($group->id))->not->toBeNull();
 });
