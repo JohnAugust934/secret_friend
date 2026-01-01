@@ -17,12 +17,12 @@ class Group extends Model
         'budget',
         'owner_id',
         'invite_token',
-        'is_drawn', // <--- ADICIONE ISTO AQUI
+        'is_drawn',
     ];
 
     protected $casts = [
         'event_date' => 'datetime',
-        'is_drawn' => 'boolean', // Garante que o Laravel trate como verdadeiro/falso
+        'is_drawn' => 'boolean',
     ];
 
     public function owner()
@@ -33,6 +33,7 @@ class Group extends Model
     public function members()
     {
         return $this->belongsToMany(User::class, 'group_members')
+            ->using(GroupMember::class) // <--- ADICIONADO: Usa o Pivot Personalizado
             ->withPivot('wishlist')
             ->withTimestamps();
     }

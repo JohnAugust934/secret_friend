@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DashboardController; // <--- Novo Controller
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\GroupController;
 use Illuminate\Support\Facades\Route;
@@ -11,10 +12,8 @@ Route::get('/', function () {
 // Rotas Autenticadas e Verificadas
 Route::middleware(['auth', 'verified'])->group(function () {
 
-    Route::get('/dashboard', function () {
-        $groups = auth()->user()->groups()->orderByDesc('created_at')->get();
-        return view('dashboard', compact('groups'));
-    })->name('dashboard');
+    // Dashboard agora usa um Controller dedicado
+    Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
     // -- Rotas de Grupos --
 
@@ -32,7 +31,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Atualização em Tempo Real (Polling)
     Route::get('/groups/{group}/members-list', [GroupController::class, 'membersList'])->name('groups.members.list');
 
-    // --- NOVAS ROTAS DE RESTRIÇÕES (EXCLUSÕES) ---
+    // Restrições (Exclusões)
     Route::post('/groups/{group}/exclusions', [GroupController::class, 'storeExclusion'])->name('groups.exclusions.store');
     Route::delete('/groups/{group}/exclusions/{exclusion}', [GroupController::class, 'destroyExclusion'])->name('groups.exclusions.destroy');
 
@@ -42,7 +41,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-// Rota Pública de Convite (Exibe a tela de entrar)
+// Rota Pública de Convite
 Route::get('/invite/{token}', [GroupController::class, 'join'])->middleware(['auth', 'verified'])->name('groups.join');
 
 require __DIR__ . '/auth.php';

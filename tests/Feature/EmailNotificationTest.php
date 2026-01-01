@@ -28,6 +28,7 @@ test('o sistema envia e-mails para os participantes após o sorteio', function (
         'invite_token' => 'EMAIL123',
     ]);
 
+    // Anexar 3 membros (Mínimo exigido para sortear)
     $group->members()->attach([$owner->id, $user2->id, $user3->id]);
 
     // 3. Ação: Realizar o sorteio
@@ -36,12 +37,12 @@ test('o sistema envia e-mails para os participantes após o sorteio', function (
     // 4. Verificação
     $response->assertSessionHas('success');
 
-    // Verifica se a classe de e-mail DrawResult foi enviada
-    // Devem ser enviados 3 e-mails (um para cada participante)
-    Mail::assertSent(DrawResult::class, 3);
+    // CORREÇÃO: Como agora usamos Queue, verificamos se foi ENFILEIRADO
+    // Devem ser enfileirados 3 e-mails (um para cada participante)
+    Mail::assertQueued(DrawResult::class, 3);
 
-    // Verifica se o e-mail foi enviado especificamente para o dono
-    Mail::assertSent(DrawResult::class, function ($mail) use ($owner) {
+    // Verifica se o e-mail foi enfileirado especificamente para o dono
+    Mail::assertQueued(DrawResult::class, function ($mail) use ($owner) {
         return $mail->hasTo($owner->email);
     });
 });
