@@ -1,5 +1,25 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}"
+    x-data="{
+          theme: localStorage.getItem('theme') || 'system',
+          initTheme() {
+              if (this.theme === 'dark' || (this.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                  document.documentElement.classList.add('dark');
+              } else {
+                  document.documentElement.classList.remove('dark');
+              }
+          },
+          setTheme(val) {
+              this.theme = val;
+              if (val === 'system') {
+                  localStorage.removeItem('theme');
+              } else {
+                  localStorage.setItem('theme', val);
+              }
+              this.initTheme();
+          }
+      }"
+    x-init="$watch('theme', () => initTheme()); window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if(theme === 'system') initTheme() }); initTheme()">
 
 <head>
     <meta charset="utf-8">
@@ -12,75 +32,31 @@
     <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet" />
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+    <script>
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark')
+        } else {
+            document.documentElement.classList.remove('dark')
+        }
+    </script>
 </head>
 
-<body class="font-sans antialiased">
+<body class="font-sans antialiased bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
+    <div class="min-h-screen">
+        @include('layouts.navigation')
 
-    <div x-data="{ loading: false }"
-        x-init="
-                // 1. Correção para o botão 'Voltar' do navegador (Safari bfcache)
-                window.addEventListener('pageshow', (event) => {
-                    if (event.persisted) { loading = false; }
-                });
+        @isset($header)
+        <header class="bg-white dark:bg-gray-800 shadow">
+            <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                {{ $header }}
+            </div>
+        </header>
+        @endisset
 
-                // 2. Detetar envio de formulários
-                document.addEventListener('submit', () => { loading = true });
-
-                // 3. Detetar cliques em links internos (A melhor forma para iOS)
-                document.addEventListener('click', (event) => {
-                    const link = event.target.closest('a');
-                    if (!link) return;
-                    
-                    const href = link.getAttribute('href');
-                    const target = link.getAttribute('target');
-
-                    // Ignorar: links vazios, âncoras, javascript, nova aba
-                    if (!href || href.startsWith('#') || href.startsWith('javascript:') || target === '_blank') return;
-
-                    // Ignorar: cliques com teclas modificadoras (ctrl, cmd, shift)
-                    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-
-                    // Ativar loading apenas para links internos
-                    if (href.startsWith(window.location.origin) || href.startsWith('/')) {
-                        loading = true;
-                    }
-                });
-             ">
-
-        <div x-show="loading"
-            style="display: none;"
-            x-transition:enter="transition ease-out duration-200"
-            x-transition:enter-start="opacity-0"
-            x-transition:enter-end="opacity-100"
-            x-transition:leave="transition ease-in duration-150"
-            x-transition:leave-start="opacity-100"
-            x-transition:leave-end="opacity-0"
-            class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gray-900 bg-opacity-80 backdrop-blur-sm">
-            <svg class="animate-spin h-16 w-16 text-indigo-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-        </div>
-
-        <div class="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-white text-gray-900">
-            @include('layouts.navigation')
-
-            @isset($header)
-            <header class="bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100 sticky top-0 z-40">
-                <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                    {{ $header }}
-                </div>
-            </header>
-            @endisset
-
-            <main>
-                {{ $slot }}
-            </main>
-
-            <footer class="text-center py-8 text-xs text-gray-400">
-                &copy; {{ date('Y') }} Amigo Secreto da Galera
-            </footer>
-        </div>
+        <main>
+            {{ $slot }}
+        </main>
     </div>
 </body>
 

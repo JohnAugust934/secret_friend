@@ -1,23 +1,28 @@
 <x-guest-layout>
-    <div class="mb-6 text-center">
-        <h2 class="text-2xl font-bold text-gray-800">Bem-vindo de volta! 👋</h2>
-        <p class="text-sm text-gray-500 mt-1">Insira os seus dados para entrar.</p>
-    </div>
-
     <x-auth-session-status class="mb-4" :status="session('status')" />
+
+    <div class="text-center mb-6">
+        {{-- ADICIONADO: dark:text-white para ficar visível no modo escuro --}}
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white flex justify-center items-center gap-2">
+            Bem-vindo de volta! <span class="text-2xl">👋</span>
+        </h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Insira os seus dados para entrar.</p>
+    </div>
 
     <form method="POST" action="{{ route('login') }}">
         @csrf
 
         <div>
-            <x-input-label for="email" value="E-mail" class="text-gray-600 font-semibold" />
-            <x-text-input id="email" class="block mt-1 w-full bg-gray-50 border-gray-200 focus:border-indigo-500 focus:bg-white transition h-11" type="email" name="email" :value="old('email')" required autofocus autocomplete="username" placeholder="exemplo@email.com" />
+            <label for="email" class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">E-mail</label>
+            <input id="email" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm"
+                type="email" name="email" :value="old('email')" required autofocus autocomplete="username"
+                placeholder="exemplo@email.com" />
             <x-input-error :messages="$errors->get('email')" class="mt-2" />
         </div>
 
         <div class="mt-4">
-            <x-input-label for="password" value="Senha" class="text-gray-600 font-semibold" />
-            <x-text-input id="password" class="block mt-1 w-full bg-gray-50 border-gray-200 focus:border-indigo-500 focus:bg-white transition h-11"
+            <label for="password" class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Senha</label>
+            <input id="password" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm"
                 type="password"
                 name="password"
                 required autocomplete="current-password"
@@ -26,28 +31,28 @@
         </div>
 
         <div class="flex items-center justify-between mt-4">
-            <label for="remember_me" class="inline-flex items-center cursor-pointer">
-                <input id="remember_me" type="checkbox" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" name="remember">
-                <span class="ms-2 text-sm text-gray-600">Lembrar de mim</span>
+            <label for="remember_me" class="inline-flex items-center">
+                <input id="remember_me" type="checkbox" class="rounded border-gray-300 dark:border-gray-600 text-indigo-600 shadow-sm focus:ring-indigo-500 dark:focus:ring-indigo-600 dark:bg-gray-900" name="remember">
+                <span class="ms-2 text-sm text-gray-600 dark:text-gray-400">{{ __('Lembrar de mim') }}</span>
             </label>
 
             @if (Route::has('password.request'))
-            <a class="text-sm text-indigo-600 hover:text-indigo-800 font-medium hover:underline" href="{{ route('password.request') }}">
-                Esqueceu a senha?
+            <a class="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-bold transition" href="{{ route('password.request') }}">
+                {{ __('Esqueceu a senha?') }}
             </a>
             @endif
         </div>
 
         <div class="mt-6">
-            <button type="submit" class="w-full justify-center bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-xl transition transform hover:-translate-y-0.5 duration-200">
-                Entrar na Conta
+            <button class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-indigo-200 dark:shadow-none transition transform hover:scale-105">
+                {{ __('Entrar na Conta') }}
             </button>
         </div>
 
-        <div class="mt-6 text-center border-t border-gray-100 pt-4">
-            <p class="text-sm text-gray-500">
+        <div class="mt-6 border-t border-gray-100 dark:border-gray-700 pt-4 text-center">
+            <p class="text-sm text-gray-500 dark:text-gray-400">
                 Ainda não tem conta?
-                <a href="{{ route('register') }}" class="text-indigo-600 font-bold hover:underline">
+                <a href="{{ route('register') }}" class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">
                     Crie uma agora
                 </a>
             </p>

@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Pairing;
 
 class Group extends Model
 {
-    // Campos que podem ser preenchidos via formulário (Mass Assignment)
+    /** @use HasFactory<\Database\Factories\GroupFactory> */
+    use HasFactory;
+
     protected $fillable = [
         'name',
         'description',
@@ -15,21 +17,19 @@ class Group extends Model
         'budget',
         'owner_id',
         'invite_token',
-        'is_drawn'
+        'is_drawn', // <--- ADICIONE ISTO AQUI
     ];
 
     protected $casts = [
-        'event_date' => 'date',
-        'is_drawn' => 'boolean',
+        'event_date' => 'datetime',
+        'is_drawn' => 'boolean', // Garante que o Laravel trate como verdadeiro/falso
     ];
 
-    // O dono do grupo
     public function owner()
     {
         return $this->belongsTo(User::class, 'owner_id');
     }
 
-    // Os membros do grupo (Tabela Pivô)
     public function members()
     {
         return $this->belongsToMany(User::class, 'group_members')
@@ -37,10 +37,8 @@ class Group extends Model
             ->withTimestamps();
     }
 
-    // Os pares sorteados (Resultados)
-    public function matches()
+    public function exclusions()
     {
-        // Mudou de Match::class para Pairing::class
-        return $this->hasMany(Pairing::class, 'group_id');
+        return $this->hasMany(Exclusion::class);
     }
 }

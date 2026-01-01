@@ -12,13 +12,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\DrawResult;
 use Illuminate\Support\Facades\Cache;
+use App\Models\Exclusion;       // <--- NOVO
+use App\Services\DrawService;   // <--- NOVO
 
 class GroupController extends Controller
 {
-    // ... (create, store, show, join, joinStore methods mantidos iguais) ...
-    // Vou omitir os métodos que não mudaram para poupar espaço, 
-    // mas deves manter o código que já tinhas nesses métodos.
-
     public function create()
     {
         return view('groups.create');
@@ -41,7 +39,9 @@ class GroupController extends Controller
 
     public function show(Group $group)
     {
-        $group->load('members');
+        // ATUALIZADO: Carrega membros e as exclusões para exibir no painel
+        $group->load(['members', 'exclusions.participant', 'exclusions.excluded']);
+
         $myPair = null;
         if ($group->is_drawn) {
             $myPair = Pairing::where('group_id', $group->id)
@@ -49,6 +49,7 @@ class GroupController extends Controller
                 ->with('giftee')
                 ->first();
         }
+
         return view('groups.show', compact('group', 'myPair'));
     }
 
@@ -77,8 +78,8 @@ class GroupController extends Controller
             ->with('success', 'Você entrou no grupo com sucesso!');
     }
 
-    // --- MÉTODO ATUALIZADO COM ENVIO DE E-MAIL ---
-    public function draw(Group $group)
+    // --- MÉTODO ATUALIZADO PARA USAR O SERVIÇO DE EXCLUSÕES ---
+    public function draw(Group $group, DrawService $drawService)
     {
         if (auth()->id() !== $group->owner_id) {
             abort(403, 'Apenas o administrador pode realizar o sorteio.');
@@ -88,50 +89,74 @@ class GroupController extends Controller
             return back()->with('error', 'O sorteio já foi realizado!');
         }
 
-        $members = $group->members;
-        if ($members->count() < 2) {
-            return back()->with('error', 'É preciso ter pelo menos 2 participantes.');
+        // Para usar restrições, precisamos de margem de manobra (min 3 pessoas)
+        if ($group->members->count() < 3) {
+            return back()->with('error', 'É preciso ter pelo menos 3 participantes para usar restrições com segurança.');
         }
 
-        // 1. Realizar o Sorteio (Transação)
-        DB::transaction(function () use ($group, $members) {
-            $shuffled = $members->shuffle();
-            $count = $shuffled->count();
+        try {
+            // 1. Tenta realizar o sorteio respeitando as regras (via Service)
+            $drawService->draw($group);
 
-            for ($i = 0; $i < $count; $i++) {
-                $santa = $shuffled[$i];
-                $gifteeIndex = ($i + 1) % $count;
-                $giftee = $shuffled[$gifteeIndex];
+            // 2. Enviar E-mails (Só chega aqui se o sorteio der certo)
+            $pairings = Pairing::where('group_id', $group->id)->with(['santa', 'giftee'])->get();
 
-                Pairing::create([
-                    'group_id' => $group->id,
-                    'santa_id' => $santa->id,
-                    'giftee_id' => $giftee->id,
-                ]);
-            }
-
-            $group->update(['is_drawn' => true]);
-        });
-
-        // 2. Enviar E-mails (Fora da transação para não bloquear o banco se o email falhar)
-        // Buscamos os pares recém-criados para enviar
-        $pairings = Pairing::where('group_id', $group->id)->with(['santa', 'giftee'])->get();
-
-        foreach ($pairings as $pair) {
-            // Verifica se o usuário tem e-mail antes de tentar enviar
-            if ($pair->santa && $pair->santa->email) {
-                try {
-                    Mail::to($pair->santa->email)->send(new DrawResult($group, $pair->santa, $pair->giftee));
-                } catch (\Exception $e) {
-                    // Logar erro mas não parar o fluxo para os outros usuários
-                    \Illuminate\Support\Facades\Log::error("Falha ao enviar email para {$pair->santa->email}: " . $e->getMessage());
+            foreach ($pairings as $pair) {
+                if ($pair->santa && $pair->santa->email) {
+                    try {
+                        Mail::to($pair->santa->email)->send(new DrawResult($group, $pair->santa, $pair->giftee));
+                    } catch (\Exception $e) {
+                        \Illuminate\Support\Facades\Log::error("Falha ao enviar email para {$pair->santa->email}: " . $e->getMessage());
+                    }
                 }
             }
-        }
 
-        return back()->with('success', 'Sorteio realizado e e-mails enviados com sucesso!');
+            return back()->with('success', 'Sorteio realizado com sucesso!');
+        } catch (\Exception $e) {
+            // Se o DrawService falhar (ex: impossível sortear com tantos bloqueios), exibe o erro
+            return back()->with('error', $e->getMessage());
+        }
     }
     // -----------------------------------------------
+
+    // --- NOVOS MÉTODOS DE RESTRIÇÃO ---
+    public function storeExclusion(Request $request, Group $group)
+    {
+        if (auth()->id() !== $group->owner_id) abort(403);
+        if ($group->is_drawn) return back()->with('error', 'Sorteio já realizado.');
+
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'excluded_id' => 'required|exists:users,id|different:user_id',
+        ]);
+
+        // Verifica se já existe para não duplicar
+        $exists = Exclusion::where('group_id', $group->id)
+            ->where('user_id', $request->user_id)
+            ->where('excluded_id', $request->excluded_id)
+            ->exists();
+
+        if (!$exists) {
+            Exclusion::create([
+                'group_id' => $group->id,
+                'user_id' => $request->user_id,
+                'excluded_id' => $request->excluded_id,
+            ]);
+        }
+
+        return back()->with('success', 'Restrição adicionada.');
+    }
+
+    public function destroyExclusion(Group $group, Exclusion $exclusion)
+    {
+        if (auth()->id() !== $group->owner_id) abort(403);
+        if ($group->is_drawn) return back()->with('error', 'Sorteio já realizado.');
+
+        $exclusion->delete();
+
+        return back()->with('success', 'Restrição removida.');
+    }
+    // ----------------------------------
 
     public function updateWishlist(Request $request, Group $group)
     {
