@@ -20,7 +20,6 @@
 
 <head>
     <meta charset="utf-8">
-    {{-- Viewport ajustada para mobile full screen --}}
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="theme-color" content="#F9FAFB">
@@ -58,7 +57,6 @@
     </div>
 
     <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 relative overflow-hidden">
-
         <div class="absolute top-10 left-10 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-2xl opacity-30 animate-blob dark:bg-purple-900"></div>
         <div class="absolute top-10 right-10 w-72 h-72 bg-indigo-300 rounded-full mix-blend-multiply filter blur-2xl opacity-30 animate-blob animation-delay-2000 dark:bg-indigo-900"></div>
         <div class="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-2xl opacity-30 animate-blob animation-delay-4000 dark:bg-pink-900"></div>
@@ -77,19 +75,24 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const loader = document.getElementById('global-loader');
+            const showLoader = () => {
+                loader.classList.remove('hidden');
+                loader.classList.add('flex');
+            };
+
             document.addEventListener('click', (e) => {
                 const link = e.target.closest('a');
-                if (link && link.href && !link.target && !link.href.includes('#') && link.hostname === window.location.hostname) {
-                    loader.classList.remove('hidden');
-                    loader.classList.add('flex');
+                if (!link) return;
+                const href = link.getAttribute('href');
+                if (href && !href.startsWith('#') && (link.hostname === window.location.hostname)) {
+                    showLoader();
                 }
             });
+
             document.addEventListener('submit', (e) => {
-                if (!e.defaultPrevented) {
-                    loader.classList.remove('hidden');
-                    loader.classList.add('flex');
-                }
+                if (!e.defaultPrevented) showLoader();
             });
+
             window.addEventListener('pageshow', (event) => {
                 if (event.persisted) {
                     loader.classList.add('hidden');
