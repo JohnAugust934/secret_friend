@@ -20,8 +20,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/groups/create', [GroupController::class, 'create'])->name('groups.create');
     Route::post('/groups', [GroupController::class, 'store'])->name('groups.store');
     Route::get('/groups/{group}', [GroupController::class, 'show'])->name('groups.show');
-    
-    // --- ROTAS DE EDIÇÃO ---
+
+    // Rota para atualização automática (Polling)
+    Route::get('/groups/{group}/members-list', [GroupController::class, 'membersList'])->name('groups.members.list');
+
+    // Edição de Grupo
     Route::get('/groups/{group}/edit', [GroupController::class, 'edit'])->name('groups.edit');
     Route::put('/groups/{group}', [GroupController::class, 'update'])->name('groups.update');
 
@@ -40,7 +43,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Wishlist
     Route::put('/groups/{group}/wishlist', [GroupController::class, 'updateWishlist'])->name('groups.wishlist.update');
 
-    // --- NOVA ROTA (ADICIONAR ESTA LINHA) ---
+    // Remover Membro
     Route::delete('/groups/{group}/members/{user}', [GroupController::class, 'removeMember'])->name('groups.members.destroy');
 
     // Excluir Grupo

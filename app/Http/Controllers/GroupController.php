@@ -9,8 +9,9 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Pairing;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail; // <--- NOVO
-use App\Mail\DrawResult;             // <--- NOVO
+use Illuminate\Support\Facades\Mail;
+use App\Mail\DrawResult;
+use Illuminate\Support\Facades\Cache;
 
 class GroupController extends Controller
 {
@@ -63,8 +64,17 @@ class GroupController extends Controller
     public function joinStore(Request $request, $token)
     {
         $group = Group::where('invite_token', $token)->firstOrFail();
-        $group->members()->syncWithoutDetaching([Auth::id() => ['wishlist' => $request->wishlist]]);
-        return redirect()->route('groups.show', $group)->with('success', 'Você entrou no grupo com sucesso!');
+
+        $group->members()->syncWithoutDetaching([
+            Auth::id() => ['wishlist' => $request->wishlist]
+        ]);
+
+        // LIMPA O CACHE PARA ATUALIZAR A LISTA
+        Cache::forget("group_members_html_{$group->id}");
+        Cache::forget("group_member_check_{$group->id}_" . Auth::id());
+
+        return redirect()->route('groups.show', $group)
+            ->with('success', 'Você entrou no grupo com sucesso!');
     }
 
     // --- MÉTODO ATUALIZADO COM ENVIO DE E-MAIL ---
@@ -172,6 +182,37 @@ class GroupController extends Controller
             return back()->with('error', 'O administrador não pode ser removido.');
         }
         $group->members()->detach($user->id);
+
+        // LIMPA O CACHE PARA ATUALIZAR A LISTA
+        Cache::forget("group_members_html_{$group->id}");
+        Cache::forget("group_member_check_{$group->id}_{$user->id}");
+
         return back()->with('success', "{$user->name} foi removido do grupo.");
+    }
+
+    // Retorna apenas o HTML da lista de membros (Otimizado para Supabase)
+    public function membersList(Group $group)
+    {
+        // 1. Verificação de segurança (verifica se é membro)
+        // Usamos o cache aqui também para não bater no banco só para ver permissão toda hora
+        $userId = Auth::id();
+        $isMember = Cache::remember("group_member_check_{$group->id}_{$userId}", 30, function () use ($group, $userId) {
+            return $group->members()->where('user_id', $userId)->exists();
+        });
+
+        if (!$isMember) {
+            abort(403);
+        }
+
+        // 2. Cache do HTML da lista (O PULO DO GATO 😺)
+        // Guardamos o HTML pronto por 5 segundos.
+        // Mesmo que 100 pessoas peçam, o banco só é consultado 1 vez a cada 5s.
+        $html = Cache::remember("group_members_html_{$group->id}", 5, function () use ($group) {
+            // Carrega os membros apenas se o cache expirou
+            $group->load('members');
+            return view('groups.partials.members-list', compact('group'))->render();
+        });
+
+        return $html;
     }
 }
