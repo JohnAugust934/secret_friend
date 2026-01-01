@@ -5,8 +5,10 @@
           initTheme() {
               if (this.theme === 'dark' || (this.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                   document.documentElement.classList.add('dark');
+                  this.updateStatusBar('#111827'); // Cor Dark (Gray-900)
               } else {
                   document.documentElement.classList.remove('dark');
+                  this.updateStatusBar('#F9FAFB'); // Cor Light (Gray-50)
               }
           },
           setTheme(val) {
@@ -17,14 +19,23 @@
                   localStorage.setItem('theme', val);
               }
               this.initTheme();
+          },
+          updateStatusBar(color) {
+              document.querySelector('meta[name=\'theme-color\']').setAttribute('content', color);
           }
       }"
     x-init="$watch('theme', () => initTheme()); window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if(theme === 'system') initTheme() }); initTheme()">
 
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    {{-- ALTERAÇÃO 1: viewport-fit=cover para preencher toda a tela do iPhone --}}
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    {{-- ALTERAÇÃO 2: Meta tags para cor da barra de status --}}
+    <meta name="theme-color" content="#F9FAFB">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
     <title>{{ config('app.name', 'Amigo Secreto') }}</title>
 
@@ -35,10 +46,13 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
     <script>
+        // Script Anti-Flicker inicial
         if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
             document.documentElement.classList.add('dark')
+            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#111827');
         } else {
             document.documentElement.classList.remove('dark')
+            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#F9FAFB');
         }
     </script>
 
@@ -58,16 +72,29 @@
                 transform: translateY(0);
             }
         }
+
+        /* Loader Global */
+        #global-loader {
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
     </style>
 </head>
 
-<body class="font-sans antialiased text-gray-900 dark:text-gray-100 transition-colors duration-300">
+<body class="font-sans antialiased text-gray-900 dark:text-gray-100 transition-colors duration-300 bg-gray-50 dark:bg-gray-900">
 
     <x-toast />
 
     <div class="fixed inset-0 -z-10 h-full w-full bg-gray-50 dark:bg-gray-900">
         <div class="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 rounded-full bg-indigo-400/30 blur-3xl filter dark:bg-indigo-600/20"></div>
         <div class="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 rounded-full bg-purple-400/30 blur-3xl filter dark:bg-purple-600/20"></div>
+    </div>
+
+    <div id="global-loader" class="fixed inset-0 z-[10000] hidden flex-col items-center justify-center bg-white/50 dark:bg-gray-900/50 transition-opacity duration-300">
+        <div class="relative">
+            <div class="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+            <div class="absolute top-0 left-0 w-16 h-16 border-4 border-transparent border-b-purple-500 rounded-full animate-spin [animation-duration:1.5s]"></div>
+        </div>
     </div>
 
     <div class="min-h-screen flex flex-col">
@@ -86,7 +113,7 @@
             {{ $slot }}
         </main>
 
-        <div class="fixed bottom-0 left-0 z-50 w-full h-16 bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border-t border-gray-200 dark:border-gray-700 flex items-center justify-around sm:hidden shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] transition-all duration-300">
+        <div class="fixed bottom-0 left-0 z-50 w-full h-16 bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border-t border-gray-200 dark:border-gray-700 flex items-center justify-around sm:hidden shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] transition-all duration-300 safe-area-pb">
             <a href="{{ route('dashboard') }}"
                 class="flex flex-col items-center justify-center w-full h-full space-y-1 {{ request()->routeIs('dashboard') ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700' }}">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -114,6 +141,40 @@
         </div>
 
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const loader = document.getElementById('global-loader');
+
+            // Mostrar loader em cliques de links internos
+            document.addEventListener('click', (e) => {
+                const link = e.target.closest('a');
+                // Verifica se é um link, se tem href, se não abre em nova aba e se é do mesmo site
+                if (link && link.href && !link.target && !link.href.includes('#') && link.hostname === window.location.hostname && !e.ctrlKey && !e.metaKey) {
+                    loader.classList.remove('hidden');
+                    loader.classList.add('flex');
+                }
+            });
+
+            // Mostrar loader ao enviar formulários
+            document.addEventListener('submit', (e) => {
+                // Se o form já tem loading interno (Alpine), não precisa duplicar, 
+                // mas como garantia global, podemos mostrar ou verificar
+                if (!e.defaultPrevented) {
+                    loader.classList.remove('hidden');
+                    loader.classList.add('flex');
+                }
+            });
+
+            // Esconder loader quando o usuário voltar (Botão Voltar do Navegador)
+            window.addEventListener('pageshow', (event) => {
+                if (event.persisted) {
+                    loader.classList.add('hidden');
+                    loader.classList.remove('flex');
+                }
+            });
+        });
+    </script>
 </body>
 
 </html>
