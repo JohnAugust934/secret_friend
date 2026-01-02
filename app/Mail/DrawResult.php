@@ -2,28 +2,49 @@
 
 namespace App\Mail;
 
-use App\Models\Group;
-use App\Models\User;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue; // <--- Importante
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-// Adicionamos "implements ShouldQueue" aqui
 class DrawResult extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
+    public $santaName;
+    public $gifteeName;
+    public $groupName;
+    public $budget;
+    public $eventDate;
+    public $wishlist;
+
     /**
      * Create a new message instance.
+     *
+     * @param string $santaName
+     * @param string $gifteeName
+     * @param string $groupName
+     * @param float $budget
+     * @param string $eventDate
+     * @param string|null $wishlist
      */
     public function __construct(
-        public Group $group,
-        public User $santa,
-        public User $giftee,
-    ) {}
+        $santaName,
+        $gifteeName,
+        $groupName,
+        $budget,
+        $eventDate,
+        $wishlist = null
+    ) {
+        $this->santaName = $santaName;
+        $this->gifteeName = $gifteeName;
+        $this->groupName = $groupName;
+        $this->budget = $budget;
+        $this->eventDate = $eventDate;
+        $this->wishlist = $wishlist;
+    }
 
     /**
      * Get the message envelope.
@@ -31,7 +52,7 @@ class DrawResult extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: "🎁 O Sorteio foi realizado! Veja quem você tirou no {$this->group->name}",
+            subject: 'Resultado do Sorteio - ' . $this->groupName,
         );
     }
 
@@ -41,15 +62,7 @@ class DrawResult extends Mailable implements ShouldQueue
     public function content(): Content
     {
         return new Content(
-            markdown: 'emails.draw-result',
-            with: [
-                'santaName' => $this->santa->name,
-                'gifteeName' => $this->giftee->name,
-                'groupName' => $this->group->name,
-                'budget' => $this->group->budget,
-                'eventDate' => $this->group->event_date->format('d/m/Y'),
-                'groupLink' => route('groups.show', $this->group->id),
-            ],
+            view: 'emails.draw-result',
         );
     }
 

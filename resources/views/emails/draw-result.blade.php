@@ -1,98 +1,97 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 
 <head>
-    <style>
-        body {
-            font-family: sans-serif;
-            background-color: #f3f4f6;
-            color: #1f2937;
-            margin: 0;
-            padding: 0;
-        }
-
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: #ffffff;
-            padding: 20px;
-            border-radius: 8px;
-            margin-top: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        .header {
-            text-align: center;
-            border-bottom: 1px solid #e5e7eb;
-            padding-bottom: 20px;
-            margin-bottom: 20px;
-        }
-
-        .logo {
-            font-size: 24px;
-            font-weight: bold;
-            color: #4f46e5;
-        }
-
-        .content {
-            text-align: center;
-        }
-
-        .button {
-            display: inline-block;
-            background-color: #4f46e5;
-            color: #ffffff;
-            padding: 12px 24px;
-            border-radius: 6px;
-            text-decoration: none;
-            font-weight: bold;
-            margin-top: 20px;
-        }
-
-        .footer {
-            text-align: center;
-            font-size: 12px;
-            color: #9ca3af;
-            margin-top: 20px;
-        }
-
-        .highlight {
-            color: #4f46e5;
-            font-weight: bold;
-        }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resultado do Sorteio - Amigo Secreto</title>
 </head>
 
-<body>
-    <div class="container">
-        <div class="header">
-            <div class="logo">🎅 Amigo Secreto</div>
-        </div>
+<body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: 'Helvetica', 'Arial', sans-serif; color: #374151;">
 
-        <div class="content">
-            <h2>Olá, {{ $santa->name }}!</h2>
-            <p>O sorteio do grupo <span class="highlight">{{ $group->name }}</span> foi realizado.</p>
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f3f4f6; padding: 40px 0;">
+        <tr>
+            <td align="center">
 
-            <p>O seu amigo secreto é:</p>
+                <table border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
 
-            <div style="background-color: #eef2ff; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                <h1 style="margin: 0; color: #312e81;">{{ $giftee->name }}</h1>
-            </div>
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #4f46e5 0%, #9333ea 100%); padding: 30px; text-align: center;">
+                            <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 800; letter-spacing: 1px;">AMIGO SECRETO</h1>
+                            <p style="color: #e0e7ff; margin: 5px 0 0 0; font-size: 14px;">O sorteio foi realizado! 🎲</p>
+                        </td>
+                    </tr>
 
-            @if($giftee->groups->find($group->id)?->pivot->wishlist)
-            <p>🎁 <strong>Dica de presente:</strong></p>
-            <p style="font-style: italic;">"{{ $giftee->groups->find($group->id)->pivot->wishlist }}"</p>
-            @endif
+                    <tr>
+                        <td style="padding: 40px 30px;">
 
-            <p>O evento acontecerá em: <strong>{{ \Carbon\Carbon::parse($group->event_date)->format('d/m/Y') }}</strong></p>
+                            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
+                                Olá, <strong>{{ $santaName }}</strong>! 👋
+                            </p>
 
-            <a href="{{ route('groups.show', $group->id) }}" class="button">Ver no Site</a>
-        </div>
+                            <p style="font-size: 16px; line-height: 1.5; margin-bottom: 30px; color: #6b7280;">
+                                O sorteio do grupo <strong style="color: #4f46e5;">{{ $groupName }}</strong> acabou de acontecer e seu par foi definido. Prepare o presente!
+                            </p>
 
-        <div class="footer">
-            &copy; {{ date('Y') }} Amigo Secreto da Galera.
-        </div>
-    </div>
+                            <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 30px; text-align: center; margin-bottom: 30px;">
+                                <p style="margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; color: #9ca3af; font-weight: bold;">VOCÊ TIROU</p>
+                                <h2 style="margin: 10px 0; font-size: 32px; color: #111827; font-weight: 900;">{{ $gifteeName }}</h2>
+
+                                @if(!empty($wishlist))
+                                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px dashed #d1d5db;">
+                                    <p style="margin: 0; font-size: 14px; color: #6b7280; font-style: italic;">
+                                        🎁 Dica de presente: <br>
+                                        <strong style="color: #4b5563; font-style: normal;">"{{ $wishlist }}"</strong>
+                                    </p>
+                                </div>
+                                @else
+                                <p style="margin-top: 15px; font-size: 13px; color: #9ca3af; font-style: italic;">(Essa pessoa não cadastrou lista de desejos)</p>
+                                @endif
+                            </div>
+
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 30px;">
+                                <tr>
+                                    <td width="50%" style="padding-right: 10px;">
+                                        <div style="background-color: #eff6ff; padding: 15px; border-radius: 8px;">
+                                            <p style="margin: 0; font-size: 11px; color: #3b82f6; font-weight: bold; text-transform: uppercase;">Valor Estipulado</p>
+                                            <p style="margin: 5px 0 0 0; font-size: 16px; font-weight: bold; color: #1e40af;">R$ {{ number_format($budget, 2, ',', '.') }}</p>
+                                        </div>
+                                    </td>
+                                    <td width="50%" style="padding-left: 10px;">
+                                        <div style="background-color: #fdf2f8; padding: 15px; border-radius: 8px;">
+                                            <p style="margin: 0; font-size: 11px; color: #db2777; font-weight: bold; text-transform: uppercase;">Data da Festa</p>
+                                            <p style="margin: 5px 0 0 0; font-size: 16px; font-weight: bold; color: #9d174d;">{{ \Carbon\Carbon::parse($eventDate)->format('d/m/Y') }}</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <div style="text-align: center;">
+                                <a href="{{ route('login') }}" style="display: inline-block; background-color: #4f46e5; color: #ffffff; text-decoration: none; padding: 14px 30px; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(79, 70, 229, 0.3);">
+                                    Acessar Painel
+                                </a>
+                            </div>
+
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+                            <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                                &copy; {{ date('Y') }} {{ config('app.name') }}. Feito com ❤️.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+
+                <p style="text-align: center; margin-top: 20px; font-size: 12px; color: #9ca3af;">
+                    Você recebeu este e-mail porque participa de um grupo de Amigo Secreto.
+                </p>
+
+            </td>
+        </tr>
+    </table>
+
 </body>
 
 </html>
