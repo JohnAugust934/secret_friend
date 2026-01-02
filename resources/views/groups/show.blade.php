@@ -219,17 +219,27 @@
                  }"
                 x-init="setInterval(() => refreshMembers(), 10000)">
 
-                <div class="flex justify-between items-center mb-6">
+                <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
                     <h3 class="text-lg font-bold text-gray-800 dark:text-white">
                         Quem está no grupo?
                     </h3>
 
                     @if(!$group->is_drawn)
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs text-gray-500 hidden sm:inline">Convide:</span>
-                        <code class="bg-gray-100 dark:bg-gray-900 px-2 py-1 rounded text-xs text-indigo-600 dark:text-indigo-400 border border-gray-200 dark:border-gray-700 select-all cursor-pointer" onclick="navigator.clipboard.writeText('{{ route('groups.join', $group->invite_token) }}'); alert('Link copiado!')">
-                            {{ route('groups.join', $group->invite_token) }}
-                        </code>
+                    <div class="w-full md:w-auto bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-2.5 flex items-center justify-between gap-3 cursor-pointer group hover:border-indigo-300 dark:hover:border-indigo-500 transition shadow-sm select-none"
+                        onclick="navigator.clipboard.writeText('{{ route('groups.join', $group->invite_token) }}'); alert('Link copiado para a área de transferência!')">
+
+                        <div class="flex flex-col min-w-0 flex-1">
+                            <span class="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">Link de Convite</span>
+                            <code class="text-xs text-indigo-600 dark:text-indigo-400 truncate font-mono block">
+                                {{ route('groups.join', $group->invite_token) }}
+                            </code>
+                        </div>
+
+                        <div class="bg-white dark:bg-gray-800 p-2 rounded-md shadow-sm text-gray-400 group-hover:text-indigo-500 transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                            </svg>
+                        </div>
                     </div>
                     @endif
                 </div>
