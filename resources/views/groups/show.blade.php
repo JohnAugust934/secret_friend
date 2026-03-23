@@ -13,6 +13,9 @@
     <div class="py-8 pb-24 sm:pb-8"
         x-data="{ 
             activeTab: 'draw',
+            participantCount: {{ $group->members->count() }},
+            membersOptions: @js($group->members->map(fn($member) => ['id' => $member->id, 'name' => $member->name])->values()),
+            canManageSettings: {{ $group->owner_id === auth()->id() && !$group->is_drawn ? 'true' : 'false' }},
             showDrawAnimation: false,
             drawMessages: ['Embaralhando nomes...', 'Verificando restrições...', 'Sorteando...', 'Fechando os envelopes...'],
             currentMessage: 'Iniciando...',
@@ -30,8 +33,71 @@
                     clearInterval(interval);
                     this.$refs.drawForm.submit();
                 }, 3000); 
+            },
+            syncMembersMeta() {
+                const source = this.$refs.membersContainer?.querySelector('[data-members-count]');
+                if (!source) return;
+
+                const count = Number(source.dataset.membersCount ?? this.participantCount);
+                this.participantCount = Number.isNaN(count) ? this.participantCount : count;
+
+                try {
+                    this.membersOptions = JSON.parse(source.dataset.membersOptions ?? '[]');
+                } catch (e) {
+                    this.membersOptions = [];
+                }
+            },
+            connectMembersStream() {
+                if (@js($group->is_drawn)) return;
+
+                if (this.membersStream) {
+                    this.membersStream.close();
+                }
+
+                this.membersStream = new EventSource('{{ route('groups.members.stream', $group) }}');
+
+                this.membersStream.addEventListener('members', (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (data?.html) {
+                            this.$refs.membersContainer.innerHTML = data.html;
+                            this.syncMembersMeta();
+                        }
+                    } catch (e) {
+                        // fallback silently
+                    }
+                });
+
+                this.membersStream.onerror = () => {
+                    if (this.membersStream) this.membersStream.close();
+                    this.membersStream = null;
+                    this.refreshMembersWithRetry();
+                };
+            },
+            refreshMembersWithRetry(retry = 0) {
+                @if($group->is_drawn) return; @endif
+                fetch('{{ route('groups.members.list', $group) }}')
+                    .then(response => response.text())
+                    .then(html => {
+                        if (this.$refs.membersContainer.innerHTML !== html) {
+                            this.$refs.membersContainer.innerHTML = html;
+                            this.syncMembersMeta();
+                        }
+                    })
+                    .catch(() => {
+                        if (retry < 1) {
+                            setTimeout(() => this.refreshMembersWithRetry(retry + 1), 1200);
+                        } else {
+                            window.notify('Falha ao atualizar participantes em tempo real.', 'warning');
+                        }
+                    });
             }
-         }">
+         }"
+        x-init="
+            if (!canManageSettings && activeTab === 'settings') activeTab = 'draw';
+            $nextTick(() => syncMembersMeta());
+            connectMembersStream();
+        ">
 
         <div x-show="showDrawAnimation"
             style="display: none;"
@@ -65,12 +131,10 @@
                     :class="activeTab === 'members' ? 'bg-white dark:bg-gray-800 shadow text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:bg-white/[0.12] hover:text-gray-700'"
                     class="w-full rounded-lg py-2.5 text-sm font-bold leading-5 ring-white ring-opacity-60 ring-offset-2 ring-offset-indigo-400 focus:outline-none focus:ring-2 transition flex items-center justify-center gap-2">
                     Participantes
-                    <span class="bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 py-0.5 px-2 rounded-full text-xs">
-                        {{ $group->members->count() }}
-                    </span>
+                    <span x-text="participantCount" class="bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 py-0.5 px-2 rounded-full text-xs"></span>
                 </button>
 
-                @if($group->owner_id === auth()->id())
+                @if($group->owner_id === auth()->id() && !$group->is_drawn)
                 <button @click="activeTab = 'settings'"
                     :class="activeTab === 'settings' ? 'bg-white dark:bg-gray-800 shadow text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:bg-white/[0.12] hover:text-gray-700'"
                     class="w-full rounded-lg py-2.5 text-sm font-bold leading-5 ring-white ring-opacity-60 ring-offset-2 ring-offset-indigo-400 focus:outline-none focus:ring-2 transition">
@@ -205,19 +269,13 @@
                 class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6"
                 x-data="{
                     refreshMembers() {
-                        @if($group->is_drawn) return; @endif
-                        fetch('{{ route('groups.members.list', $group) }}')
-                            .then(response => response.text())
-                            .then(html => {
-                                if (this.$refs.membersContainer.innerHTML !== html) {
-                                    if (document.activeElement.tagName !== 'TEXTAREA' && document.activeElement.tagName !== 'INPUT') {
-                                        this.$refs.membersContainer.innerHTML = html;
-                                    }
-                                }
-                            });
+                        this.refreshMembersWithRetry();
                     }
                  }"
-                x-init="setInterval(() => refreshMembers(), 10000)">
+                x-init="
+                    syncMembersMeta();
+                    setInterval(() => refreshMembers(), 10000);
+                ">
 
                 <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
                     <h3 class="text-lg font-bold text-gray-800 dark:text-white">
@@ -226,7 +284,11 @@
 
                     @if(!$group->is_drawn)
                     <div class="w-full md:w-auto bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-2.5 flex items-center justify-between gap-3 cursor-pointer group hover:border-indigo-300 dark:hover:border-indigo-500 transition shadow-sm select-none"
-                        onclick="navigator.clipboard.writeText('{{ route('groups.join', $group->invite_token) }}'); alert('Link copiado para a área de transferência!')">
+                        @click="
+                            navigator.clipboard.writeText('{{ route('groups.join', $group->invite_token) }}')
+                                .then(() => window.notify('Link de convite copiado!', 'success'))
+                                .catch(() => window.notify('Nao foi possivel copiar o link.', 'error'));
+                        ">
 
                         <div class="flex flex-col min-w-0 flex-1">
                             <span class="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider">Link de Convite</span>
@@ -272,14 +334,18 @@
                         <div class="flex-1">
                             <select name="user_id" class="w-full rounded-lg border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                 <option value="">Quem tira...</option>
-                                @foreach($group->members as $m) <option value="{{ $m->id }}">{{ $m->name }}</option> @endforeach
+                                <template x-for="member in membersOptions" :key="member.id">
+                                    <option :value="member.id" x-text="member.name"></option>
+                                </template>
                             </select>
                         </div>
                         <span class="hidden sm:flex items-center text-gray-400">🚫</span>
                         <div class="flex-1">
                             <select name="excluded_id" class="w-full rounded-lg border-gray-300 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                                 <option value="">Não pode tirar...</option>
-                                @foreach($group->members as $m) <option value="{{ $m->id }}">{{ $m->name }}</option> @endforeach
+                                <template x-for="member in membersOptions" :key="member.id">
+                                    <option :value="member.id" x-text="member.name"></option>
+                                </template>
                             </select>
                         </div>
                         <button type="submit"

@@ -1,9 +1,9 @@
 <?php
 
-use App\Models\User;
 use App\Models\Group;
-use Illuminate\Support\Facades\Cache;
+use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
+use Illuminate\Support\Facades\Cache;
 
 beforeEach(function () {
     $this->withoutMiddleware(ValidateCsrfToken::class);
@@ -15,7 +15,7 @@ test('o observer limpa o cache automaticamente quando um membro entra', function
         'name' => 'Teste Cache',
         'event_date' => now(),
         'owner_id' => $owner->id,
-        'invite_token' => 'CACHE'
+        'invite_token' => 'CACHE',
     ]);
 
     // 1. Adiciona o dono (dispara observer, limpa cache que nem existia ainda)

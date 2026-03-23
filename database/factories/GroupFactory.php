@@ -19,7 +19,7 @@ class GroupFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => 'Grupo ' . $this->faker->words(2, true),
+            'name' => 'Grupo '.$this->faker->words(2, true),
             'description' => $this->faker->sentence(),
             'event_date' => $this->faker->dateTimeBetween('+1 week', '+1 month'),
             'budget' => $this->faker->randomFloat(2, 50, 500),

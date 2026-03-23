@@ -1,10 +1,10 @@
 <?php
 
-use App\Models\User;
-use App\Models\Group;
 use App\Mail\DrawResult;
-use Illuminate\Support\Facades\Mail;
+use App\Models\Group;
+use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
+use Illuminate\Support\Facades\Mail;
 
 // Desabilita CSRF para facilitar o POST
 beforeEach(function () {
@@ -55,7 +55,7 @@ test('o e-mail contém o nome do amigo secreto sorteado', function () {
         'name' => 'Natal Mágico',
         'event_date' => '2025-12-25',
         'owner_id' => $santa->id,
-        'invite_token' => 'XYZ'
+        'invite_token' => 'XYZ',
     ]);
 
     // Criar a instância do e-mail

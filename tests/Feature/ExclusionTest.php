@@ -1,9 +1,9 @@
 <?php
 
-use App\Models\User;
-use App\Models\Group;
 use App\Models\Exclusion;
+use App\Models\Group;
 use App\Models\Pairing;
+use App\Models\User;
 use App\Services\DrawService;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 
@@ -24,7 +24,7 @@ test('admin pode criar e excluir restrições', function () {
     // Ação: Criar Restrição (Dono não tira Membro)
     $response = $this->actingAs($owner)->post(route('groups.exclusions.store', $group), [
         'user_id' => $owner->id,
-        'excluded_id' => $member->id
+        'excluded_id' => $member->id,
     ]);
 
     // Verificação
@@ -32,7 +32,7 @@ test('admin pode criar e excluir restrições', function () {
     $this->assertDatabaseHas('exclusions', [
         'group_id' => $group->id,
         'user_id' => $owner->id,
-        'excluded_id' => $member->id
+        'excluded_id' => $member->id,
     ]);
 
     // Ação: Remover Restrição
@@ -61,7 +61,7 @@ test('o sorteio respeita as restrições (Lógica Matemática)', function () {
     Exclusion::create(['group_id' => $group->id, 'user_id' => $uA->id, 'excluded_id' => $uB->id]);
 
     // Executa o sorteio usando o Service
-    $service = new DrawService();
+    $service = new DrawService;
     $service->draw($group);
 
     // Verifica no banco quem o A tirou
@@ -80,10 +80,10 @@ test('falha se o sorteio for impossível', function () {
     // Bloqueio total
     Exclusion::create(['group_id' => $group->id, 'user_id' => $uA->id, 'excluded_id' => $uB->id]);
 
-    $service = new DrawService();
+    $service = new DrawService;
 
     // Deve lançar exceção
-    expect(fn() => $service->draw($group))->toThrow(Exception::class);
+    expect(fn () => $service->draw($group))->toThrow(Exception::class);
 });
 
 // --- NOVOS TESTES DE SEGURANÇA ---
@@ -99,7 +99,7 @@ test('SEGURANÇA: não permite criar restrição com usuários de fora do grupo'
     // Tentativa 1: Tentar excluir alguém de fora
     $response = $this->actingAs($owner)->post(route('groups.exclusions.store', $group), [
         'user_id' => $owner->id,
-        'excluded_id' => $outsider->id // <--- INTRUSO
+        'excluded_id' => $outsider->id, // <--- INTRUSO
     ]);
 
     // Deve falhar com erro de validação nos campos
@@ -109,7 +109,7 @@ test('SEGURANÇA: não permite criar restrição com usuários de fora do grupo'
     // Tentativa 2: Alguém de fora tentar excluir alguém de dentro
     $response = $this->actingAs($owner)->post(route('groups.exclusions.store', $group), [
         'user_id' => $outsider->id, // <--- INTRUSO TENTANDO DITAR REGRA
-        'excluded_id' => $memberInGroup->id
+        'excluded_id' => $memberInGroup->id,
     ]);
 
     $response->assertSessionHasErrors(['user_id']);
@@ -124,7 +124,7 @@ test('SEGURANÇA: não permite criar restrição contra si mesmo', function () {
     // Tentar excluir a si mesmo
     $response = $this->actingAs($owner)->post(route('groups.exclusions.store', $group), [
         'user_id' => $owner->id,
-        'excluded_id' => $owner->id
+        'excluded_id' => $owner->id,
     ]);
 
     $response->assertSessionHasErrors(['excluded_id']);

@@ -16,6 +16,10 @@ class AuthenticatedSessionController extends Controller
      */
     public function create(): View
     {
+        if (request()->filled('invite_token')) {
+            session(['invite_token' => request()->string('invite_token')->toString()]);
+        }
+
         return view('auth.login');
     }
 
@@ -27,6 +31,17 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
 
         $request->session()->regenerate();
+
+        $inviteToken = $request->string('invite_token')->toString();
+        if ($inviteToken === '') {
+            $inviteToken = (string) $request->session()->pull('invite_token', '');
+        }
+
+        if ($inviteToken !== '') {
+            $request->session()->put('invite_token', $inviteToken);
+
+            return redirect()->route('groups.join', $inviteToken);
+        }
 
         return redirect()->intended(route('dashboard', absolute: false));
     }

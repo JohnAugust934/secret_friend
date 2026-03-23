@@ -2,22 +2,24 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Group;
-use Illuminate\Http\Request;
+use App\Http\Requests\StoreExclusionRequest;
 use App\Http\Requests\StoreGroupRequest;
 use App\Http\Requests\UpdateGroupRequest;
-use App\Http\Requests\StoreExclusionRequest;
-use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Auth;
-use App\Models\Pairing;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 use App\Mail\DrawResult;
-use Illuminate\Support\Facades\Cache;
 use App\Models\Exclusion;
+use App\Models\Group;
+use App\Models\GroupMember;
+use App\Models\Pairing;
+use App\Models\User;
 use App\Services\DrawService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
-use App\Models\GroupMember; // <--- Importante para disparar o Observer corretamente
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class GroupController extends Controller
 {
@@ -29,6 +31,7 @@ class GroupController extends Controller
     public function store(StoreGroupRequest $request)
     {
         $validated = $request->validated();
+
         $group = Group::create([
             'name' => $validated['name'],
             'event_date' => $validated['event_date'],
@@ -38,7 +41,6 @@ class GroupController extends Controller
             'invite_token' => Str::upper(Str::random(6)),
         ]);
 
-        // attach() dispara o evento 'created' no Pivot Model configurado
         $group->members()->attach(Auth::id(), ['wishlist' => $validated['wishlist'] ?? null]);
 
         return redirect()->route('groups.show', $group);
@@ -46,6 +48,8 @@ class GroupController extends Controller
 
     public function show(Group $group)
     {
+        Gate::authorize('view', $group);
+
         $group->load(['members', 'exclusions.participant', 'exclusions.excluded']);
 
         $myPair = null;
@@ -62,67 +66,109 @@ class GroupController extends Controller
     public function join($token)
     {
         $group = Group::where('invite_token', $token)->firstOrFail();
-        if ($group->members->contains(Auth::id())) {
-            return redirect()->route('groups.show', $group)->with('info', 'Você já participa deste grupo!');
+
+        if (! Auth::check()) {
+            session(['invite_token' => $token]);
+
+            return view('groups.invite-landing', compact('group'));
         }
+
+        if ($group->members->contains(Auth::id())) {
+            return redirect()->route('groups.show', $group)->with('info', 'Voce ja participa deste grupo!');
+        }
+
         return view('groups.join', compact('group'));
     }
 
     public function joinStore(Request $request, $token)
     {
+        if (! Auth::check()) {
+            return redirect()->route('login', ['invite_token' => $token]);
+        }
+
         $group = Group::where('invite_token', $token)->firstOrFail();
 
-        // Verificamos manualmente para garantir que usamos 'attach' (que dispara eventos)
-        // em vez de syncWithoutDetaching (que as vezes não dispara)
-        if (!$group->members()->where('user_id', Auth::id())->exists()) {
+        if (! $group->members()->where('user_id', Auth::id())->exists()) {
             $group->members()->attach(Auth::id(), ['wishlist' => $request->wishlist]);
         }
 
-        // Cache::forget removido! O Observer cuida disso.
+        $request->session()->forget('invite_token');
 
         return redirect()->route('groups.show', $group)
-            ->with('success', 'Você entrou no grupo com sucesso!');
+            ->with('success', 'Voce entrou no grupo com sucesso!');
     }
 
     public function draw(Group $group, DrawService $drawService)
     {
         Gate::authorize('draw', $group);
 
-        if ($group->is_drawn) {
-            return back()->with('error', 'O sorteio já foi realizado!');
-        }
-
-        if ($group->members->count() < 3) {
-            return back()->with('error', 'É preciso ter pelo menos 3 participantes para usar restrições com segurança.');
-        }
-
         try {
-            $drawService->draw($group);
+            $drawExecuted = DB::transaction(function () use ($group, $drawService) {
+                /** @var Group|null $lockedGroup */
+                $lockedGroup = Group::query()->whereKey($group->id)->lockForUpdate()->first();
 
-            $pairings = Pairing::where('group_id', $group->id)->with(['santa', 'giftee'])->get();
-
-            foreach ($pairings as $pair) {
-                if ($pair->santa && $pair->santa->email) {
-                    Mail::to($pair->santa->email)->queue(new DrawResult($group, $pair->santa, $pair->giftee));
+                if (! $lockedGroup) {
+                    throw new \RuntimeException('Grupo nao encontrado.');
                 }
-            }
 
-            return back()->with('success', 'Sorteio realizado! Os e-mails estão sendo enviados em segundo plano.');
+                if ($lockedGroup->is_drawn) {
+                    return false;
+                }
+
+                if ($lockedGroup->members()->count() < 3) {
+                    throw new \RuntimeException('E preciso ter pelo menos 3 participantes para usar restricoes com seguranca.');
+                }
+
+                $drawService->draw($lockedGroup);
+
+                return true;
+            });
+
+            if (! $drawExecuted) {
+                return back()->with('error', 'O sorteio ja foi realizado!');
+            }
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());
         }
+
+        $pairings = Pairing::where('group_id', $group->id)->with(['santa', 'giftee'])->get();
+        $mailErrors = 0;
+
+        foreach ($pairings as $pair) {
+            if (! $pair->santa || ! $pair->santa->email) {
+                continue;
+            }
+
+            try {
+                Mail::to($pair->santa->email)->queue(new DrawResult($group, $pair->santa, $pair->giftee));
+            } catch (\Throwable $e) {
+                report($e);
+                $mailErrors++;
+            }
+        }
+
+        if ($mailErrors > 0) {
+            return back()->with(
+                'warning',
+                'Sorteio concluido com sucesso, mas tivemos falha ao enfileirar '.$mailErrors.' notificacao(oes).'
+            );
+        }
+
+        return back()->with('success', 'Sorteio realizado! Os e-mails estao sendo enviados em segundo plano.');
     }
 
     public function storeExclusion(StoreExclusionRequest $request, Group $group)
     {
-        if ($group->is_drawn) return back()->with('error', 'Sorteio já realizado.');
+        if ($group->is_drawn) {
+            return back()->with('error', 'Sorteio ja realizado.');
+        }
 
         $exists = Exclusion::where('group_id', $group->id)
             ->where('user_id', $request->user_id)
             ->where('excluded_id', $request->excluded_id)
             ->exists();
 
-        if (!$exists) {
+        if (! $exists) {
             Exclusion::create([
                 'group_id' => $group->id,
                 'user_id' => $request->user_id,
@@ -130,39 +176,45 @@ class GroupController extends Controller
             ]);
         }
 
-        return back()->with('success', 'Restrição adicionada.');
+        return back()->with('success', 'Restricao adicionada.');
     }
 
     public function destroyExclusion(Group $group, Exclusion $exclusion)
     {
         Gate::authorize('manageExclusions', $group);
 
-        if ($group->is_drawn) return back()->with('error', 'Sorteio já realizado.');
+        if ($group->is_drawn) {
+            return back()->with('error', 'Sorteio ja realizado.');
+        }
 
         if ($exclusion->group_id !== $group->id) {
-            abort(403, 'Ação inválida.');
+            abort(403, 'Acao invalida.');
         }
 
         $exclusion->delete();
 
-        return back()->with('success', 'Restrição removida.');
+        return back()->with('success', 'Restricao removida.');
     }
 
     public function updateWishlist(Request $request, Group $group)
     {
+        Gate::authorize('view', $group);
+
         if ($group->is_drawn) {
-            return back()->with('error', 'O sorteio já foi realizado! Não é possível alterar o desejo.');
+            return back()->with('error', 'O sorteio ja foi realizado! Nao e possivel alterar o desejo.');
         }
+
         $request->validate(['wishlist' => 'nullable|string|max:1000']);
 
-        // REFATORADO: Usamos o Modelo Pivot diretamente para garantir que o evento 'updated' dispare no Observer
         $memberPivot = GroupMember::where('group_id', $group->id)
             ->where('user_id', Auth::id())
             ->first();
 
-        if ($memberPivot) {
-            $memberPivot->update(['wishlist' => $request->wishlist]);
+        if (! $memberPivot) {
+            return back()->with('error', 'Voce nao participa deste grupo.');
         }
+
+        $memberPivot->update(['wishlist' => $request->wishlist]);
 
         return back()->with('success', 'Sua lista de desejos foi atualizada!');
     }
@@ -170,37 +222,41 @@ class GroupController extends Controller
     public function edit(Group $group)
     {
         Gate::authorize('update', $group);
+
         return view('groups.edit', compact('group'));
     }
 
     public function update(UpdateGroupRequest $request, Group $group)
     {
         Gate::authorize('update', $group);
+
         $validated = $request->validated();
         $group->update($validated);
-        return redirect()->route('groups.show', $group)->with('success', 'Informações do grupo atualizadas com sucesso!');
+
+        return redirect()->route('groups.show', $group)->with('success', 'Informacoes do grupo atualizadas com sucesso!');
     }
 
     public function destroy(Group $group)
     {
         Gate::authorize('delete', $group);
+
         $group->delete();
-        return redirect()->route('dashboard')->with('success', 'Grupo excluído com sucesso!');
+
+        return redirect()->route('dashboard')->with('success', 'Grupo excluido com sucesso!');
     }
 
-    public function removeMember(Group $group, \App\Models\User $user)
+    public function removeMember(Group $group, User $user)
     {
         Gate::authorize('removeMember', $group);
 
         if ($group->is_drawn) {
-            return back()->with('error', 'Não é possível remover membros após o sorteio.');
-        }
-        if ($user->id === $group->owner_id) {
-            return back()->with('error', 'O administrador não pode ser removido.');
+            return back()->with('error', 'Nao e possivel remover membros apos o sorteio.');
         }
 
-        // CORREÇÃO: Buscamos o registro primeiro.
-        // Ao chamar ->delete() na instância do modelo, o Observer 'deleted' é disparado.
+        if ($user->id === $group->owner_id) {
+            return back()->with('error', 'O administrador nao pode ser removido.');
+        }
+
         $pivot = GroupMember::where('group_id', $group->id)
             ->where('user_id', $user->id)
             ->first();
@@ -215,19 +271,56 @@ class GroupController extends Controller
     public function membersList(Group $group)
     {
         $userId = Auth::id();
+
         $isMember = Cache::remember("group_member_check_{$group->id}_{$userId}", 30, function () use ($group, $userId) {
             return $group->members()->where('user_id', $userId)->exists();
         });
 
-        if (!$isMember) {
+        if (! $isMember) {
             abort(403);
         }
 
         $html = Cache::remember("group_members_html_{$group->id}", 5, function () use ($group) {
             $group->load('members');
+
             return view('groups.partials.members-list', compact('group'))->render();
         });
 
         return $html;
+    }
+
+    public function membersStream(Group $group): StreamedResponse
+    {
+        Gate::authorize('view', $group);
+
+        return response()->stream(function () use ($group) {
+            $iterations = 0;
+
+            while (! connection_aborted() && $iterations < 12) {
+                $group->load('members');
+                $html = view('groups.partials.members-list', compact('group'))->render();
+                $payload = [
+                    'html' => $html,
+                    'count' => $group->members->count(),
+                    'options' => $group->members->map(fn ($member) => [
+                        'id' => $member->id,
+                        'name' => $member->name,
+                    ])->values(),
+                ];
+
+                echo "event: members\n";
+                echo 'data: '.json_encode($payload, JSON_UNESCAPED_UNICODE)."\n\n";
+                @ob_flush();
+                @flush();
+
+                $iterations++;
+                sleep(5);
+            }
+        }, 200, [
+            'Content-Type' => 'text/event-stream',
+            'Cache-Control' => 'no-cache, no-store, must-revalidate',
+            'Connection' => 'keep-alive',
+            'X-Accel-Buffering' => 'no',
+        ]);
     }
 }

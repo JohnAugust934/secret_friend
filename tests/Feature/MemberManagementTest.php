@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\User;
 use App\Models\Group;
+use App\Models\User;
 
 test('o dono do grupo pode remover um participante', function () {
     // 1. Setup
@@ -12,7 +12,7 @@ test('o dono do grupo pode remover um participante', function () {
         'name' => 'Festa',
         'event_date' => '2025-12-25',
         'owner_id' => $owner->id,
-        'invite_token' => 'ABC'
+        'invite_token' => 'ABC',
     ]);
 
     // Adiciona dono e membro
@@ -28,7 +28,7 @@ test('o dono do grupo pode remover um participante', function () {
     // O membro não deve mais estar na tabela pivot
     $this->assertDatabaseMissing('group_members', [
         'group_id' => $group->id,
-        'user_id' => $member->id
+        'user_id' => $member->id,
     ]);
 });
 
@@ -60,7 +60,7 @@ test('não é possível remover membros após o sorteio ser realizado', function
         'event_date' => '2025-12-25',
         'owner_id' => $owner->id,
         'invite_token' => 'ZZZ',
-        'is_drawn' => true // Sorteio já feito
+        'is_drawn' => true, // Sorteio já feito
     ]);
     $group->members()->attach([$owner->id, $member->id]);
 

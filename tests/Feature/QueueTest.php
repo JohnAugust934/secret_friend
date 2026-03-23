@@ -1,10 +1,10 @@
 <?php
 
-use App\Models\User;
-use App\Models\Group;
 use App\Mail\DrawResult;
-use Illuminate\Support\Facades\Mail;
+use App\Models\Group;
+use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
+use Illuminate\Support\Facades\Mail;
 
 beforeEach(function () {
     $this->withoutMiddleware(ValidateCsrfToken::class);

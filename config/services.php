@@ -35,4 +35,14 @@ return [
         ],
     ],
 
+    'telegram' => [
+        'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        'chat_id' => env('TELEGRAM_CHAT_ID'),
+    ],
+
+    'ops' => [
+        'alert_email' => env('OPS_ALERT_EMAIL'),
+        'status_allowed_emails' => env('OPS_STATUS_ALLOWED_EMAILS', ''),
+    ],
+
 ];

@@ -1,33 +1,39 @@
 <x-guest-layout>
+    @php
+    $inviteToken = request('invite_token', session('invite_token'));
+    @endphp
+
     <div class="text-center mb-6">
-        {{-- ADICIONADO: dark:text-white para ficar visível no modo escuro --}}
         <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
-            Crie sua conta 🚀
+            Crie sua conta ??
         </h2>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Preencha os dados abaixo para começar.</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Preencha os dados abaixo para comecar.</p>
     </div>
 
     <form method="POST" action="{{ route('register') }}">
         @csrf
+        @if($inviteToken)
+        <input type="hidden" name="invite_token" value="{{ $inviteToken }}">
+        @endif
 
         <div>
             <label for="name" class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Nome Completo</label>
             <input id="name" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm"
-                type="text" name="name" :value="old('name')" required autofocus autocomplete="name" placeholder="Seu nome" />
+                type="text" name="name" value="{{ old('name') }}" required autofocus autocomplete="name" placeholder="Seu nome" />
             <x-input-error :messages="$errors->get('name')" class="mt-2" />
         </div>
 
         <div class="mt-4">
             <label for="email" class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">E-mail</label>
             <input id="email" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm"
-                type="email" name="email" :value="old('email')" required autocomplete="username" placeholder="seu@email.com" />
+                type="email" name="email" value="{{ old('email') }}" required autocomplete="username" placeholder="seu@email.com" />
             <x-input-error :messages="$errors->get('email')" class="mt-2" />
         </div>
 
         <div class="mt-4">
             <label for="password" class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Senha</label>
             <input id="password" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm"
-                type="password" name="password" required autocomplete="new-password" placeholder="Mínimo 8 caracteres" />
+                type="password" name="password" required autocomplete="new-password" placeholder="Minimo 8 caracteres" />
             <x-input-error :messages="$errors->get('password')" class="mt-2" />
         </div>
 
@@ -46,8 +52,8 @@
 
         <div class="mt-6 border-t border-gray-100 dark:border-gray-700 pt-4 text-center">
             <p class="text-sm text-gray-500 dark:text-gray-400">
-                Já tem uma conta?
-                <a href="{{ route('login') }}" class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">
+                Ja tem uma conta?
+                <a href="{{ route('login', $inviteToken ? ['invite_token' => $inviteToken] : []) }}" class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">
                     Entrar
                 </a>
             </p>

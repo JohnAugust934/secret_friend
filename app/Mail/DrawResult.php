@@ -2,6 +2,8 @@
 
 namespace App\Mail;
 
+use App\Models\Group;
+use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -13,37 +15,26 @@ class DrawResult extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
-    public $santaName;
-    public $gifteeName;
-    public $groupName;
-    public $budget;
-    public $eventDate;
-    public $wishlist;
+    public string $santaName;
 
-    /**
-     * Create a new message instance.
-     *
-     * @param string $santaName
-     * @param string $gifteeName
-     * @param string $groupName
-     * @param float $budget
-     * @param string $eventDate
-     * @param string|null $wishlist
-     */
-    public function __construct(
-        $santaName,
-        $gifteeName,
-        $groupName,
-        $budget,
-        $eventDate,
-        $wishlist = null
-    ) {
-        $this->santaName = $santaName;
-        $this->gifteeName = $gifteeName;
-        $this->groupName = $groupName;
-        $this->budget = $budget;
-        $this->eventDate = $eventDate;
-        $this->wishlist = $wishlist;
+    public string $gifteeName;
+
+    public string $groupName;
+
+    public float $budget;
+
+    public string $eventDate;
+
+    public ?string $wishlist;
+
+    public function __construct(Group $group, User $santa, User $giftee)
+    {
+        $this->santaName = $santa->name;
+        $this->gifteeName = $giftee->name;
+        $this->groupName = $group->name;
+        $this->budget = (float) ($group->budget ?? 0);
+        $this->eventDate = (string) ($group->event_date?->format('Y-m-d') ?? now()->toDateString());
+        $this->wishlist = $giftee->pivot?->wishlist;
     }
 
     /**
@@ -52,7 +43,7 @@ class DrawResult extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Resultado do Sorteio - ' . $this->groupName,
+            subject: 'Resultado do Sorteio - '.$this->groupName,
         );
     }
 

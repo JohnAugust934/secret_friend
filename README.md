@@ -140,3 +140,38 @@ Este projeto é open-source e licenciado sob a [MIT License](LICENSE).
 <p align="center">
   Desenvolvido com ❤️ para unir amigos e famílias.
 </p>
+---
+
+## Estabilidade e Operacao
+
+- Endpoints de saude: `/up` e `/healthz`.
+- Check de prontidao: `php artisan ops:readiness`.
+- Pipeline CI: `.github/workflows/ci.yml`.
+- Scripts operacionais Linux:
+  - `scripts/ops/backup-db.sh`
+  - `scripts/ops/restore-db.sh`
+  - `scripts/ops/check-health.sh`
+  - `scripts/ops/run-queue-once.sh`
+  - `scripts/ops/run-scheduler.sh`
+  - `scripts/ops/supervisor-queue.conf`
+  - `scripts/ops/k6-smoke.js`
+- Regra de alerta:
+  - Se Telegram estiver configurado (`TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID`), envia somente Telegram.
+  - Se Telegram nao estiver configurado, envia para `OPS_ALERT_EMAIL`.
+- Guia de cron na Hostinger: `docs/CRON_HOSTINGER.md`.
+- Runbook completo: `docs/PRODUCTION_READINESS.md`.
+
+### Seeder do usuario de teste local
+
+- Seeder: `database/seeders/TestUserSeeder.php`.
+- Executar: `php artisan db:seed --class=TestUserSeeder`.
+- Credenciais:
+  - Email: `teste@amigosecreto.local`.
+  - Senha: `Teste@123456`.
+
+### Observabilidade adicional
+
+- Telemetria de frontend: erros JS e metricas de navegacao sao enviados para `/telemetry/frontend`.
+- Painel de status operacional: `/ops/status` (acesso controlado por `OPS_STATUS_ALLOWED_EMAILS`).
+- Testes E2E: `npm run e2e`.
+- Carga concorrente focada em convite/sorteio: `scripts/ops/k6-concurrency.js`.

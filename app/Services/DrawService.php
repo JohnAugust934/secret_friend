@@ -27,8 +27,8 @@ class DrawService
         $matches = [];
         $usedGiftees = [];
 
-        if (!$this->backtrack(0, $participants, $usedGiftees, $matches, $exclusionMap)) {
-            throw new \Exception("Matematicamente impossível realizar o sorteio com as restrições atuais.");
+        if (! $this->backtrack(0, $participants, $usedGiftees, $matches, $exclusionMap)) {
+            throw new \Exception('Matematicamente impossível realizar o sorteio com as restrições atuais.');
         }
 
         // 3. Formata para salvar
@@ -65,9 +65,15 @@ class DrawService
         shuffle($candidates);
 
         foreach ($candidates as $candidate) {
-            if (in_array($candidate, $usedGiftees)) continue;
-            if ($candidate === $currentSanta) continue;
-            if (isset($exclusionMap[$currentSanta]) && in_array($candidate, $exclusionMap[$currentSanta])) continue;
+            if (in_array($candidate, $usedGiftees)) {
+                continue;
+            }
+            if ($candidate === $currentSanta) {
+                continue;
+            }
+            if (isset($exclusionMap[$currentSanta]) && in_array($candidate, $exclusionMap[$currentSanta])) {
+                continue;
+            }
 
             $matches[$currentSanta] = $candidate;
             $usedGiftees[] = $candidate;

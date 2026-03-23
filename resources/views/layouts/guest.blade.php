@@ -25,6 +25,7 @@
     <meta name="theme-color" content="#F9FAFB">
 
     <title>{{ config('app.name', 'Laravel') }}</title>
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
 
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet" />
@@ -49,7 +50,7 @@
 
 <body class="font-sans text-gray-900 antialiased bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
 
-    <div id="global-loader" class="fixed inset-0 z-[10000] hidden flex-col items-center justify-center bg-white/50 dark:bg-gray-900/50 transition-opacity duration-300">
+    <div id="global-loader" class="pointer-events-none fixed inset-0 z-[10000] hidden flex-col items-center justify-center bg-white/30 dark:bg-gray-900/30 transition-opacity duration-300">
         <div class="relative">
             <div class="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
             <div class="absolute top-0 left-0 w-16 h-16 border-4 border-transparent border-b-purple-500 rounded-full animate-spin [animation-duration:1.5s]"></div>
@@ -79,17 +80,7 @@
                 loader.classList.remove('hidden');
                 loader.classList.add('flex');
             };
-
-            document.addEventListener('click', (e) => {
-                const link = e.target.closest('a');
-                if (!link) return;
-                const href = link.getAttribute('href');
-                if (href && !href.startsWith('#') && (link.hostname === window.location.hostname)) {
-                    showLoader();
-                }
-            });
-
-            document.addEventListener('submit', (e) => {
+document.addEventListener('submit', (e) => {
                 if (!e.defaultPrevented) showLoader();
             });
 
@@ -104,3 +95,5 @@
 </body>
 
 </html>
+
+

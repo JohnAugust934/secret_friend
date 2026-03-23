@@ -8,7 +8,16 @@ use App\Models\User;
 class GroupPolicy
 {
     /**
-     * Determina se o usuário pode atualizar o grupo.
+     * Determina se o usuario pode visualizar o grupo.
+     */
+    public function view(User $user, Group $group): bool
+    {
+        return $user->id === $group->owner_id
+            || $group->members()->where('users.id', $user->id)->exists();
+    }
+
+    /**
+     * Determina se o usuario pode atualizar o grupo.
      */
     public function update(User $user, Group $group): bool
     {
@@ -16,7 +25,7 @@ class GroupPolicy
     }
 
     /**
-     * Determina se o usuário pode deletar o grupo.
+     * Determina se o usuario pode deletar o grupo.
      */
     public function delete(User $user, Group $group): bool
     {
@@ -24,7 +33,7 @@ class GroupPolicy
     }
 
     /**
-     * Determina se o usuário pode realizar o sorteio.
+     * Determina se o usuario pode realizar o sorteio.
      */
     public function draw(User $user, Group $group): bool
     {
@@ -32,7 +41,7 @@ class GroupPolicy
     }
 
     /**
-     * Determina se o usuário pode gerenciar exclusões (criar/deletar).
+     * Determina se o usuario pode gerenciar exclusoes (criar/deletar).
      */
     public function manageExclusions(User $user, Group $group): bool
     {
@@ -40,7 +49,7 @@ class GroupPolicy
     }
 
     /**
-     * Determina se o usuário pode remover membros.
+     * Determina se o usuario pode remover membros.
      */
     public function removeMember(User $user, Group $group): bool
     {

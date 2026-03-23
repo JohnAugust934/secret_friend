@@ -21,8 +21,10 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="theme-color" content="#F9FAFB">
     <title>{{ config('app.name', 'Amigo Secreto') }}</title>
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
 
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet" />
@@ -47,7 +49,7 @@
 
 <body class="antialiased bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300 min-h-screen flex flex-col justify-center items-center relative overflow-hidden">
 
-    <div id="global-loader" class="fixed inset-0 z-[10000] hidden flex-col items-center justify-center bg-white/50 dark:bg-gray-900/50 transition-opacity duration-300">
+    <div id="global-loader" class="pointer-events-none fixed inset-0 z-[10000] hidden flex-col items-center justify-center bg-white/30 dark:bg-gray-900/30 transition-opacity duration-300">
         <div class="relative">
             <div class="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
             <div class="absolute top-0 left-0 w-16 h-16 border-4 border-transparent border-b-purple-500 rounded-full animate-spin [animation-duration:1.5s]"></div>
@@ -102,14 +104,7 @@
         // Loader Script Simplificado para a Landing Page
         document.addEventListener('DOMContentLoaded', () => {
             const loader = document.getElementById('global-loader');
-            document.addEventListener('click', (e) => {
-                const link = e.target.closest('a');
-                if (link && link.href && !link.target && !link.href.includes('#') && link.hostname === window.location.hostname) {
-                    loader.classList.remove('hidden');
-                    loader.classList.add('flex');
-                }
-            });
-            window.addEventListener('pageshow', (event) => {
+window.addEventListener('pageshow', (event) => {
                 if (event.persisted) {
                     loader.classList.add('hidden');
                     loader.classList.remove('flex');
@@ -120,3 +115,5 @@
 </body>
 
 </html>
+
+

@@ -1,10 +1,9 @@
 <?php
 
-use App\Models\User;
 use App\Models\Group;
 use App\Models\Pairing;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
@@ -64,7 +63,7 @@ test('o usuário consegue ver quem lhe calhou no sorteio', function () {
     Pairing::create([
         'group_id' => $group->id,
         'santa_id' => $user->id,
-        'giftee_id' => $target->id
+        'giftee_id' => $target->id,
     ]);
 
     $response = $this->actingAs($user)->get(route('groups.show', $group));
@@ -85,7 +84,7 @@ test('o dono pode excluir o grupo e limpar os dados', function () {
     Pairing::create([
         'group_id' => $group->id,
         'santa_id' => $owner->id,
-        'giftee_id' => $owner->id
+        'giftee_id' => $owner->id,
     ]);
 
     $this->actingAs($owner)

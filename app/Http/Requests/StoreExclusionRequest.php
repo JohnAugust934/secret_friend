@@ -14,6 +14,7 @@ class StoreExclusionRequest extends FormRequest
     public function authorize(): bool
     {
         $group = $this->route('group');
+
         // Apenas o dono do grupo pode adicionar exclusões
         return $group && $group->owner_id === $this->user()->id;
     }

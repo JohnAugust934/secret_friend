@@ -1,9 +1,9 @@
 <?php
 
-use App\Models\User;
-use App\Models\Group;
 use App\Models\Exclusion;
+use App\Models\Group;
 use App\Models\Pairing;
+use App\Models\User;
 use App\Services\DrawService;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 
@@ -30,7 +30,7 @@ test('algoritmo resolve um cenário de exclusão circular complexa', function ()
     Exclusion::create(['group_id' => $group->id, 'user_id' => $uB->id, 'excluded_id' => $uC->id]);
     Exclusion::create(['group_id' => $group->id, 'user_id' => $uC->id, 'excluded_id' => $uA->id]);
 
-    $service = new DrawService();
+    $service = new DrawService;
     $result = $service->draw($group);
 
     expect($result)->toBeTrue();
@@ -47,7 +47,7 @@ test('algoritmo resolve um cenário de exclusão circular complexa', function ()
 
 test('algoritmo identifica corretamente cenário impossível', function () {
     // Cenário Impossível: 3 Pessoas (A, B, C)
-    // A bloqueia B e C. 
+    // A bloqueia B e C.
     // A não tem quem tirar.
 
     $uA = User::factory()->create();
@@ -60,10 +60,10 @@ test('algoritmo identifica corretamente cenário impossível', function () {
     Exclusion::create(['group_id' => $group->id, 'user_id' => $uA->id, 'excluded_id' => $uB->id]);
     Exclusion::create(['group_id' => $group->id, 'user_id' => $uA->id, 'excluded_id' => $uC->id]);
 
-    $service = new DrawService();
+    $service = new DrawService;
 
     // Deve lançar exceção
-    expect(fn() => $service->draw($group))->toThrow(Exception::class, 'Matematicamente impossível');
+    expect(fn () => $service->draw($group))->toThrow(Exception::class, 'Matematicamente impossível');
 });
 
 test('stress test: algoritmo funciona para grupo médio (20 pessoas)', function () {
@@ -80,12 +80,12 @@ test('stress test: algoritmo funciona para grupo médio (20 pessoas)', function 
             Exclusion::create([
                 'group_id' => $group->id,
                 'user_id' => $member->id,
-                'excluded_id' => $members[$index + 1]->id
+                'excluded_id' => $members[$index + 1]->id,
             ]);
         }
     }
 
-    $service = new DrawService();
+    $service = new DrawService;
     $startTime = microtime(true);
 
     $service->draw($group);

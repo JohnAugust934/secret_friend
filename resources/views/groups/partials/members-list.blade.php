@@ -1,4 +1,11 @@
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+@php
+$membersOptions = $group->members->map(fn($member) => ['id' => $member->id, 'name' => $member->name])->values();
+@endphp
+
+<div
+    data-members-count="{{ $group->members->count() }}"
+    data-members-options='@json($membersOptions)'
+    class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
     @foreach($group->members as $member)
     <div class="flex items-center p-3 rounded-xl border {{ $member->id === auth()->id() ? 'border-indigo-200 bg-indigo-50/50 dark:border-indigo-700 dark:bg-indigo-900/30' : 'border-gray-100 bg-white dark:border-gray-700 dark:bg-gray-800' }} transition hover:shadow-sm">
 

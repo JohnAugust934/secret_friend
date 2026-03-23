@@ -18,7 +18,14 @@
             @if($groups->count() > 0)
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 @foreach($groups as $group)
-                <a href="{{ route('groups.show', $group) }}" class="block group">
+                <a href="{{ route('groups.show', $group) }}"
+                    x-data="{ loading: false }"
+                    @click="loading = true"
+                    :class="loading ? 'pointer-events-none opacity-90' : ''"
+                    class="block group relative">
+                    <div x-show="loading" style="display: none;" class="absolute inset-0 z-20 rounded-3xl bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm flex items-center justify-center">
+                        <div class="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                    </div>
                     <div class="h-full relative bg-white/60 dark:bg-gray-800/60 backdrop-blur-md rounded-3xl shadow-xl hover:shadow-2xl hover:shadow-indigo-500/10 border border-white/40 dark:border-gray-700/50 transition-all duration-300 transform hover:-translate-y-1 overflow-hidden">
 
                         <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>

@@ -1,20 +1,27 @@
 <x-guest-layout>
+    @php
+    $inviteToken = request('invite_token', session('invite_token'));
+    @endphp
+
     <x-auth-session-status class="mb-4" :status="session('status')" />
 
     <div class="text-center mb-8">
         <h2 class="text-3xl font-black text-gray-900 dark:text-white flex justify-center items-center gap-2 tracking-tight">
-            Bem-vindo! <span class="text-3xl hover:animate-spin cursor-default">👋</span>
+            Bem-vindo! <span class="text-3xl hover:animate-spin cursor-default">??</span>
         </h2>
         <p class="text-sm text-gray-500 dark:text-gray-400 mt-2 font-medium">Entre para descobrir seu amigo secreto.</p>
     </div>
 
     <form method="POST" action="{{ route('login') }}" class="space-y-6">
         @csrf
+        @if($inviteToken)
+        <input type="hidden" name="invite_token" value="{{ $inviteToken }}">
+        @endif
 
         <div>
             <x-floating-input
                 name="email"
-                label="Endereço de E-mail"
+                label="Endereco de E-mail"
                 type="email"
                 :value="old('email')"
                 required autofocus autocomplete="username" />
@@ -51,9 +58,9 @@
 
         <div class="pt-4 text-center">
             <p class="text-sm text-gray-500 dark:text-gray-400">
-                Não tem conta?
-                <a href="{{ route('register') }}" class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline transition">
-                    Crie uma grátis
+                Nao tem conta?
+                <a href="{{ route('register', $inviteToken ? ['invite_token' => $inviteToken] : []) }}" class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline transition">
+                    Crie uma gratis
                 </a>
             </p>
         </div>

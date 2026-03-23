@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\User;
 use App\Models\Group;
+use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 
 beforeEach(function () {

@@ -1,11 +1,10 @@
 <?php
 
 use App\Models\User;
-use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Auth\Notifications\ResetPassword;
-use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\Password;
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
+use Illuminate\Support\Facades\Notification;
 
 beforeEach(function () {
     $this->withoutMiddleware(ValidateCsrfToken::class);
@@ -39,7 +38,7 @@ test('usuário pode solicitar link de recuperação de senha', function () {
         'email' => $user->email,
     ]);
 
-    $response->assertSessionHas('status', __("We have emailed your password reset link."));
+    $response->assertSessionHas('status', __('We have emailed your password reset link.'));
 
     // Verifica se a notificação de reset foi enviada
     Notification::assertSentTo(

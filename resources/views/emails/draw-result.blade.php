@@ -26,7 +26,7 @@
                         <td style="padding: 40px 30px;">
 
                             <p style="font-size: 16px; line-height: 1.5; margin-bottom: 20px;">
-                                Olá, <strong>{{ $santaName }}</strong>! 👋
+                                Olá, {{ $santaName }}! 👋
                             </p>
 
                             <p style="font-size: 16px; line-height: 1.5; margin-bottom: 30px; color: #6b7280;">
@@ -95,3 +95,4 @@
 </body>
 
 </html>
+

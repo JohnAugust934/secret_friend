@@ -34,6 +34,7 @@
     <meta name="theme-color" content="#F9FAFB">
 
     <title>{{ config('app.name', 'Amigo Secreto') }}</title>
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
 
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet" />
@@ -82,7 +83,7 @@
         <div class="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 rounded-full bg-purple-400/30 blur-3xl filter dark:bg-purple-600/20"></div>
     </div>
 
-    <div id="global-loader" class="fixed inset-0 z-[10000] hidden flex-col items-center justify-center bg-white/50 dark:bg-gray-900/50 transition-opacity duration-300">
+    <div id="global-loader" class="pointer-events-none fixed inset-0 z-[10000] hidden flex-col items-center justify-center bg-white/30 dark:bg-gray-900/30 transition-opacity duration-300">
         <div class="relative">
             <div class="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
             <div class="absolute top-0 left-0 w-16 h-16 border-4 border-transparent border-b-purple-500 rounded-full animate-spin [animation-duration:1.5s]"></div>
@@ -134,39 +135,14 @@
                 loader.classList.remove('hidden');
                 loader.classList.add('flex');
             };
-
-            // 1. Intercepta CLIQUES em links (incluindo Logo, Menus, Cards)
-            document.addEventListener('click', (e) => {
-                const link = e.target.closest('a');
-                if (!link) return;
-
-                const href = link.getAttribute('href');
-                const target = link.getAttribute('target');
-
-                // Verifica se é link interno válido e não abre nova aba
-                if (href && !href.startsWith('#') && !href.startsWith('javascript:') && (!target || target === '_self') && (link.hostname === window.location.hostname)) {
-
-                    // Caso especial: Link de logout ou formulários via JS
-                    if (link.hasAttribute('onclick') && link.getAttribute('onclick').includes('submit')) {
-                        showLoader();
-                        return;
-                    }
-
-                    // Não mostra loader se for apenas download
-                    if (link.hasAttribute('download')) return;
-
-                    showLoader();
-                }
-            });
-
-            // 2. Intercepta Envios de FORMULÁRIOS (Login, Logout, Salvar)
+            // Mostra loader apenas para envios de formularios.
             document.addEventListener('submit', (e) => {
                 if (!e.defaultPrevented) {
                     showLoader();
                 }
             });
 
-            // 3. Esconde loader ao usar o botão "Voltar" do navegador
+            // Esconde loader ao usar o botao "Voltar" do navegador
             window.addEventListener('pageshow', (event) => {
                 if (event.persisted) {
                     loader.classList.add('hidden');
@@ -178,3 +154,6 @@
 </body>
 
 </html>
+
+
+

@@ -6,14 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class Pairing extends Model
 {
-    // AVISO IMPORTANTE: Como mudamos o nome do Model, 
+    // AVISO IMPORTANTE: Como mudamos o nome do Model,
     // precisamos dizer explicitamente qual é a tabela no banco.
     protected $table = 'matches';
 
     protected $fillable = [
         'group_id',
         'santa_id',
-        'giftee_id'
+        'giftee_id',
     ];
 
     public function group()

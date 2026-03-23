@@ -2,8 +2,8 @@
 
 namespace Tests;
 
-use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
-use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken; // <--- Importante
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
+use Illuminate\Foundation\Testing\TestCase as BaseTestCase; // <--- Importante
 
 abstract class TestCase extends BaseTestCase
 {

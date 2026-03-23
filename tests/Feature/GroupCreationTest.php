@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\User;
 use App\Models\Group;
+use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 
 // O beforeEach executa antes de cada teste deste ficheiro
@@ -35,7 +35,7 @@ test('um usuário autenticado pode criar um grupo com dados válidos', function 
     $this->assertDatabaseHas('group_members', [
         'group_id' => $group->id,
         'user_id' => $user->id,
-        'wishlist' => 'Eu quero um teclado'
+        'wishlist' => 'Eu quero um teclado',
     ]);
 });
 
