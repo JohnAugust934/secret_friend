@@ -259,6 +259,9 @@ Artisan::command('ops:backup-db {--output=} {--retention-days=}', function () us
         }
     } elseif ($driver === 'pgsql') {
         $host = (string) ($connection['host'] ?? '127.0.0.1');
+        if (in_array(strtolower($host), ['localhost', '::1'], true)) {
+            $host = '127.0.0.1';
+        }
         $port = (string) ($connection['port'] ?? '5432');
         $username = (string) ($connection['username'] ?? '');
         $password = (string) ($connection['password'] ?? '');
@@ -281,6 +284,9 @@ Artisan::command('ops:backup-db {--output=} {--retention-days=}', function () us
         $env['PGPASSWORD'] = $password;
     } else {
         $host = (string) ($connection['host'] ?? '127.0.0.1');
+        if (in_array(strtolower($host), ['localhost', '::1'], true)) {
+            $host = '127.0.0.1';
+        }
         $port = (string) ($connection['port'] ?? '3306');
         $username = (string) ($connection['username'] ?? '');
         $password = (string) ($connection['password'] ?? '');
@@ -291,9 +297,15 @@ Artisan::command('ops:backup-db {--output=} {--retention-days=}', function () us
             return 1;
         }
 
+        $dumpBinary = trim((string) config('services.ops.mysql_dump_binary', ''));
+        if ($dumpBinary === '') {
+            $dumpBinary = is_file('/usr/bin/mariadb-dump') ? '/usr/bin/mariadb-dump' : 'mysqldump';
+        }
+
         $outFile = $outDir.DIRECTORY_SEPARATOR."backup_mysql_{$timestamp}.sql";
         $shellCommand = sprintf(
-            'mysqldump --host=%s --port=%s --user=%s --password=%s %s > %s',
+            '%s --protocol=TCP --host=%s --port=%s --user=%s --password=%s %s > %s',
+            escapeshellarg($dumpBinary),
             escapeshellarg($host),
             escapeshellarg($port),
             escapeshellarg($username),

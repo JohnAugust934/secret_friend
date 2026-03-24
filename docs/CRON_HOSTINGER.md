@@ -34,6 +34,9 @@ OPS_HEALTHCHECK_URL=${APP_URL}/healthz
 # Retencao dos backups em dias
 OPS_BACKUP_RETENTION_DAYS=14
 
+# Binario de dump MySQL/MariaDB (Hostinger)
+OPS_MYSQL_DUMP_BINARY=/usr/bin/mariadb-dump
+
 # Painel operacional
 OPS_STATUS_ALLOWED_EMAILS=admin@on3digital.com.br
 ```
@@ -84,3 +87,4 @@ Se `queue:failed` vier vazio e os comandos retornarem sem erro, cron e notificac
 php artisan optimize:clear
 php artisan optimize
 ```
+
