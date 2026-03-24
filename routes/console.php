@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schedule;
 use Illuminate\Support\Facades\Schema;
@@ -20,6 +21,10 @@ $notifyOps = static function (string $message, string $level = 'error', string $
     } catch (\Throwable) {
         // Nunca deixa uma notificacao quebrar o fluxo principal.
     }
+};
+
+$normalizeDbHost = static function (string $host): string {
+    return in_array(strtolower($host), ['localhost', '::1'], true) ? '127.0.0.1' : $host;
 };
 
 Artisan::command('inspire', function () {
@@ -171,16 +176,57 @@ Artisan::command('ops:health-check {--url=}', function () use ($notifyOps) {
 
     $payload = $response->json();
     $status = is_array($payload) ? (string) ($payload['status'] ?? 'unknown') : 'unknown';
+    $details = [];
+
+    if (is_array($payload) && isset($payload['checks']) && is_array($payload['checks'])) {
+        foreach ($payload['checks'] as $checkName => $checkValue) {
+            if (is_string($checkValue) && $checkValue !== 'ok') {
+                $details[] = "{$checkName}={$checkValue}";
+                continue;
+            }
+
+            if (is_array($checkValue)) {
+                $state = (string) ($checkValue['status'] ?? $checkValue['state'] ?? 'unknown');
+                if (! in_array($state, ['ok', 'pass'], true)) {
+                    $detail = (string) ($checkValue['details'] ?? '');
+                    $details[] = $detail !== ''
+                        ? "{$checkName}={$state} ({$detail})"
+                        : "{$checkName}={$state}";
+                }
+            }
+        }
+    }
+
+    $detailText = $details !== [] ? implode(' | ', $details) : 'Sem detalhes adicionais no payload';
 
     if ($status === 'fail' || $status === 'unknown') {
-        $notifyOps("Health check com falha: status={$status}", 'error', 'healthz');
+        $notifyOps(
+            "Health check com falha: status={$status}. Divergencias: {$detailText}. Verifique storage/logs/laravel.log",
+            'error',
+            'healthz'
+        );
+        Log::error('ops.health_check.failed', [
+            'url' => $healthUrl,
+            'status' => $status,
+            'details' => $details,
+            'payload' => $payload,
+        ]);
         $this->error("Health check falhou com status={$status}");
 
         return 2;
     }
 
     if ($status === 'degraded') {
-        $notifyOps('Health check degradado', 'warning', 'healthz');
+        $notifyOps(
+            "Health check degradado. Divergencias: {$detailText}. Verifique storage/logs/laravel.log",
+            'warning',
+            'healthz'
+        );
+        Log::warning('ops.health_check.degraded', [
+            'url' => $healthUrl,
+            'details' => $details,
+            'payload' => $payload,
+        ]);
         $this->warn('Health check degradado.');
 
         return 1;
@@ -191,7 +237,7 @@ Artisan::command('ops:health-check {--url=}', function () use ($notifyOps) {
     return 0;
 })->purpose('Run health check against OPS_HEALTHCHECK_URL (or APP_URL/healthz) and notify on degradation/failure');
 
-Artisan::command('ops:backup-db {--output=} {--retention-days=}', function () use ($notifyOps) {
+Artisan::command('ops:backup-db {--output=} {--retention-days=}', function () use ($notifyOps, $normalizeDbHost) {
     $connectionName = (string) config('database.default');
     $connection = config("database.connections.{$connectionName}");
 
@@ -258,10 +304,7 @@ Artisan::command('ops:backup-db {--output=} {--retention-days=}', function () us
             return 1;
         }
     } elseif ($driver === 'pgsql') {
-        $host = (string) ($connection['host'] ?? '127.0.0.1');
-        if (in_array(strtolower($host), ['localhost', '::1'], true)) {
-            $host = '127.0.0.1';
-        }
+        $host = $normalizeDbHost((string) ($connection['host'] ?? '127.0.0.1'));
         $port = (string) ($connection['port'] ?? '5432');
         $username = (string) ($connection['username'] ?? '');
         $password = (string) ($connection['password'] ?? '');
@@ -283,10 +326,7 @@ Artisan::command('ops:backup-db {--output=} {--retention-days=}', function () us
         );
         $env['PGPASSWORD'] = $password;
     } else {
-        $host = (string) ($connection['host'] ?? '127.0.0.1');
-        if (in_array(strtolower($host), ['localhost', '::1'], true)) {
-            $host = '127.0.0.1';
-        }
+        $host = $normalizeDbHost((string) ($connection['host'] ?? '127.0.0.1'));
         $port = (string) ($connection['port'] ?? '3306');
         $username = (string) ($connection['username'] ?? '');
         $password = (string) ($connection['password'] ?? '');
@@ -333,10 +373,81 @@ Artisan::command('ops:backup-db {--output=} {--retention-days=}', function () us
         }
     }
 
+    if (! is_file($outFile)) {
+        $notifyOps("Backup concluido sem arquivo valido: {$outFile}", 'error', 'backup-db');
+        $this->error("Arquivo de backup nao encontrado: {$outFile}");
+
+        return 1;
+    }
+
+    $size = (int) (@filesize($outFile) ?: 0);
+    if ($size <= 0) {
+        $notifyOps("Backup gerado com tamanho zero: {$outFile}", 'error', 'backup-db');
+        $this->error('Backup gerado com tamanho zero.');
+
+        return 1;
+    }
+
+    $integrityOk = true;
+    $integrityNotes = [];
+    $sample = @file_get_contents($outFile, false, null, 0, 262144);
+
+    if ($driver === 'sqlite') {
+        try {
+            $pdo = new PDO('sqlite:'.$outFile);
+            $check = (string) $pdo->query('PRAGMA integrity_check')->fetchColumn();
+            if (strtolower($check) !== 'ok') {
+                $integrityOk = false;
+                $integrityNotes[] = "sqlite_integrity={$check}";
+            } else {
+                $integrityNotes[] = 'sqlite_integrity=ok';
+            }
+        } catch (\Throwable $e) {
+            $integrityOk = false;
+            $integrityNotes[] = 'sqlite_integrity=erro';
+            $integrityNotes[] = $e->getMessage();
+        }
+    } else {
+        $sampleText = is_string($sample) ? strtoupper($sample) : '';
+        $hasStructure = str_contains($sampleText, 'CREATE TABLE')
+            || str_contains($sampleText, 'INSERT INTO')
+            || str_contains($sampleText, 'MYSQL DUMP')
+            || str_contains($sampleText, 'MARIADB DUMP')
+            || str_contains($sampleText, 'POSTGRESQL DATABASE DUMP');
+
+        if (! $hasStructure) {
+            $integrityOk = false;
+            $integrityNotes[] = 'assinatura_sql_ausente';
+        } else {
+            $integrityNotes[] = 'assinatura_sql=ok';
+        }
+    }
+
+    $sha256 = @hash_file('sha256', $outFile) ?: 'n/a';
+    $integritySummary = $integrityNotes !== [] ? implode(', ', $integrityNotes) : 'sem_notas';
+
+    if (! $integrityOk) {
+        $notifyOps(
+            "Backup criado, mas integridade basica falhou. Arquivo: ".basename($outFile).". Verifique storage/logs/laravel.log",
+            'error',
+            'backup-db'
+        );
+        Log::error('ops.backup.integrity_failed', [
+            'file' => $outFile,
+            'size' => $size,
+            'sha256' => $sha256,
+            'notes' => $integrityNotes,
+            'driver' => $driver,
+        ]);
+        $this->error("Integridade basica do backup falhou: {$integritySummary}");
+
+        return 1;
+    }
+
     $threshold = now()->subDays($retentionDays)->getTimestamp();
     $deleted = 0;
 
-    foreach (glob($outDir.DIRECTORY_SEPARATOR.'backup_*.sql') ?: [] as $file) {
+    foreach (glob($outDir.DIRECTORY_SEPARATOR.'backup_*.*') ?: [] as $file) {
         $mtime = @filemtime($file);
         if ($mtime !== false && $mtime < $threshold && @unlink($file)) {
             $deleted++;
@@ -345,14 +456,258 @@ Artisan::command('ops:backup-db {--output=} {--retention-days=}', function () us
 
     $this->info("Backup criado em: {$outFile}");
     $this->info("Backups antigos removidos: {$deleted}");
+    $this->info("SHA256: {$sha256}");
+    $notifyOps(
+        'Backup realizado com integridade basica OK. Arquivo: '.basename($outFile).". Tamanho: {$size} bytes. SHA256: {$sha256}",
+        'info',
+        'backup-db'
+    );
+    Log::info('ops.backup.completed', [
+        'file' => $outFile,
+        'size' => $size,
+        'sha256' => $sha256,
+        'deleted_old_backups' => $deleted,
+        'driver' => $driver,
+    ]);
 
     return 0;
 })->purpose('Create DB backup based on Laravel DB config and prune old files');
+
+Artisan::command('ops:check-failed-mails', function () use ($notifyOps) {
+    if (! Schema::hasTable('failed_jobs')) {
+        $this->info('Tabela failed_jobs nao encontrada. Nada para monitorar.');
+
+        return 0;
+    }
+
+    $cursorKey = 'ops:last_failed_jobs_cursor';
+    $lastSeenId = (int) Cache::get($cursorKey, 0);
+
+    $query = DB::table('failed_jobs')->orderBy('id');
+    if ($lastSeenId > 0) {
+        $query->where('id', '>', $lastSeenId);
+    }
+
+    $failedRows = $query->get(['id', 'queue', 'payload', 'exception', 'failed_at']);
+
+    if ($failedRows->isEmpty()) {
+        $this->info('Nenhuma nova falha de fila.');
+
+        return 0;
+    }
+
+    $maxId = (int) $failedRows->max('id');
+
+    // Primeira execucao: inicializa cursor sem alertar historico antigo.
+    if ($lastSeenId === 0) {
+        Cache::forever($cursorKey, $maxId);
+        $this->info('Cursor inicializado para monitoramento de failed_jobs.');
+
+        return 0;
+    }
+
+    $mailFailures = $failedRows->filter(function ($row) {
+        $payload = (string) ($row->payload ?? '');
+        $exception = (string) ($row->exception ?? '');
+
+        return str_contains($payload, 'Illuminate\\Mail\\')
+            || str_contains($payload, 'App\\Mail\\')
+            || str_contains($payload, 'SendQueuedMailable')
+            || str_contains($exception, 'Swift_')
+            || str_contains($exception, 'Symfony\\Component\\Mailer')
+            || str_contains($exception, 'SMTP');
+    })->values();
+
+    Cache::forever($cursorKey, $maxId);
+
+    if ($mailFailures->isEmpty()) {
+        $this->info('Novas falhas detectadas, mas sem indicio de e-mail.');
+
+        return 0;
+    }
+
+    $first = $mailFailures->first();
+    $firstError = preg_replace('/\s+/', ' ', trim((string) ($first->exception ?? 'erro desconhecido')));
+    $firstError = substr($firstError, 0, 220);
+    $count = $mailFailures->count();
+
+    $message = "Falha de envio de e-mail detectada em fila ({$count} novo(s)). ".
+        "Erro: {$firstError}. Verifique storage/logs/laravel.log e rode 'php artisan queue:failed'.";
+
+    $notifyOps($message, 'error', 'queue-mail');
+    Log::error('ops.queue.mail_failed', [
+        'count' => $count,
+        'first_failed_job_id' => $first->id ?? null,
+        'first_queue' => $first->queue ?? null,
+        'first_error' => $firstError,
+    ]);
+
+    $this->error($message);
+
+    return 1;
+})->purpose('Notify when new failed_jobs indicate email delivery failures');
+
+Artisan::command('ops:restore-db {file} {--force} {--skip-pre-backup}', function () use ($notifyOps, $normalizeDbHost) {
+    if (! (bool) $this->option('force')) {
+        $this->error('Por seguranca, confirme com --force para executar restore.');
+
+        return 1;
+    }
+
+    $fileInput = trim((string) $this->argument('file'));
+    $restoreFile = str_starts_with($fileInput, DIRECTORY_SEPARATOR) ? $fileInput : base_path($fileInput);
+
+    if (! is_file($restoreFile)) {
+        $this->error("Arquivo de restore nao encontrado: {$restoreFile}");
+
+        return 1;
+    }
+
+    if (! (bool) $this->option('skip-pre-backup')) {
+        $this->info('Criando backup preventivo antes do restore...');
+        $code = Artisan::call('ops:backup-db');
+        if ($code !== 0) {
+            $notifyOps('Restore abortado: falha no backup preventivo.', 'error', 'restore-db');
+            $this->error('Restore abortado: backup preventivo falhou.');
+
+            return 1;
+        }
+    }
+
+    $connectionName = (string) config('database.default');
+    $connection = config("database.connections.{$connectionName}");
+
+    if (! is_array($connection)) {
+        $this->error("Conexao de banco invalida: {$connectionName}");
+
+        return 1;
+    }
+
+    $driver = (string) ($connection['driver'] ?? '');
+    $database = (string) ($connection['database'] ?? '');
+    $env = [];
+    $shellCommand = '';
+
+    if ($driver === 'sqlite') {
+        if ($database === '' || $database === ':memory:') {
+            $this->error('Restore sqlite requer arquivo fisico em database.connections.*.database.');
+
+            return 1;
+        }
+
+        $targetPath = str_starts_with($database, DIRECTORY_SEPARATOR) ? $database : base_path($database);
+        if (! @copy($restoreFile, $targetPath)) {
+            $notifyOps("Restore sqlite falhou ao copiar arquivo para {$targetPath}", 'error', 'restore-db');
+            $this->error('Falha ao copiar arquivo sqlite para destino.');
+
+            return 1;
+        }
+
+        try {
+            $pdo = new PDO('sqlite:'.$targetPath);
+            $check = (string) $pdo->query('PRAGMA integrity_check')->fetchColumn();
+            if (strtolower($check) !== 'ok') {
+                throw new RuntimeException("PRAGMA integrity_check retornou: {$check}");
+            }
+        } catch (\Throwable $e) {
+            $notifyOps("Restore sqlite concluiu copia, mas falhou integridade: {$e->getMessage()}", 'error', 'restore-db');
+            $this->error("Restore sqlite falhou na validacao: {$e->getMessage()}");
+
+            return 1;
+        }
+    } elseif (in_array($driver, ['mysql', 'mariadb'], true)) {
+        $host = $normalizeDbHost((string) ($connection['host'] ?? '127.0.0.1'));
+        $port = (string) ($connection['port'] ?? '3306');
+        $username = (string) ($connection['username'] ?? '');
+        $password = (string) ($connection['password'] ?? '');
+
+        if ($database === '' || $username === '') {
+            $this->error('Configuracao de banco incompleta para restore (database/username).');
+
+            return 1;
+        }
+
+        $restoreBinary = trim((string) config('services.ops.mysql_restore_binary', ''));
+        if ($restoreBinary === '') {
+            $restoreBinary = is_file('/usr/bin/mariadb') ? '/usr/bin/mariadb' : 'mysql';
+        }
+
+        $shellCommand = sprintf(
+            '%s --protocol=TCP --host=%s --port=%s --user=%s --password=%s %s < %s',
+            escapeshellarg($restoreBinary),
+            escapeshellarg($host),
+            escapeshellarg($port),
+            escapeshellarg($username),
+            escapeshellarg($password),
+            escapeshellarg($database),
+            escapeshellarg($restoreFile)
+        );
+    } elseif ($driver === 'pgsql') {
+        $host = $normalizeDbHost((string) ($connection['host'] ?? '127.0.0.1'));
+        $port = (string) ($connection['port'] ?? '5432');
+        $username = (string) ($connection['username'] ?? '');
+        $password = (string) ($connection['password'] ?? '');
+
+        if ($database === '' || $username === '') {
+            $this->error('Configuracao de banco incompleta para restore (database/username).');
+
+            return 1;
+        }
+
+        $shellCommand = sprintf(
+            'psql --host=%s --port=%s --username=%s --dbname=%s -f %s',
+            escapeshellarg($host),
+            escapeshellarg($port),
+            escapeshellarg($username),
+            escapeshellarg($database),
+            escapeshellarg($restoreFile)
+        );
+        $env['PGPASSWORD'] = $password;
+    } else {
+        $this->error("Driver nao suportado para restore: {$driver}");
+
+        return 1;
+    }
+
+    if ($shellCommand !== '') {
+        $process = Process::fromShellCommandline($shellCommand, base_path(), $env);
+        $process->setTimeout(1800);
+        $process->run();
+
+        if (! $process->isSuccessful()) {
+            $errorOutput = trim($process->getErrorOutput());
+            if ($errorOutput === '') {
+                $errorOutput = trim($process->getOutput());
+            }
+
+            $notifyOps('Restore de banco falhou: '.($errorOutput !== '' ? $errorOutput : 'erro desconhecido'), 'error', 'restore-db');
+            $this->error('Restore falhou.'.($errorOutput !== '' ? " {$errorOutput}" : ''));
+
+            return 1;
+        }
+    }
+
+    $notifyOps(
+        'Restore de banco concluido com sucesso. Arquivo: '.basename($restoreFile).". Verifique storage/logs/laravel.log",
+        'warning',
+        'restore-db'
+    );
+    Log::warning('ops.restore.completed', [
+        'file' => $restoreFile,
+        'driver' => $driver,
+    ]);
+    $this->info('Restore concluido com sucesso.');
+
+    return 0;
+})->purpose('Restore database from backup file (requires --force, with optional pre-backup)');
 
 Schedule::command('queue:work --stop-when-empty --tries=3 --timeout=120')
     ->everyMinute();
 
 Schedule::command('ops:health-check')
+    ->everyFiveMinutes();
+
+Schedule::command('ops:check-failed-mails')
     ->everyFiveMinutes();
 
 Schedule::command('ops:backup-db')

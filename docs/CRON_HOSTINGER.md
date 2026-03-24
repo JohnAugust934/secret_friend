@@ -34,8 +34,9 @@ OPS_HEALTHCHECK_URL=${APP_URL}/healthz
 # Retencao dos backups em dias
 OPS_BACKUP_RETENTION_DAYS=14
 
-# Binario de dump MySQL/MariaDB (Hostinger)
+# Binarios de dump/restore MySQL-MariaDB (Hostinger)
 OPS_MYSQL_DUMP_BINARY=/usr/bin/mariadb-dump
+OPS_MYSQL_RESTORE_BINARY=/usr/bin/mariadb
 
 # Painel operacional
 OPS_STATUS_ALLOWED_EMAILS=admin@on3digital.com.br
@@ -59,8 +60,9 @@ Comando:
 Agendamentos definidos dentro do sistema:
 
 - Fila (envio de notificacoes/e-mails em fila): a cada 1 minuto
-- Health check: a cada 5 minutos
-- Backup de banco: diariamente as 02:30
+- Health check com alerta de divergencias: a cada 5 minutos
+- Monitor de falhas de e-mail na fila: a cada 5 minutos
+- Backup de banco com validacao de integridade basica: diariamente as 02:30
 
 Tudo controlado em `routes/console.php` via Laravel Scheduler.
 
@@ -70,6 +72,7 @@ Tudo controlado em `routes/console.php` via Laravel Scheduler.
 cd /home/u810081012/domains/on3digital.com.br/public_html/secretFriend
 php artisan schedule:list
 php artisan ops:health-check
+php artisan ops:check-failed-mails
 php artisan ops:backup-db
 php artisan queue:work --stop-when-empty --tries=1
 php artisan queue:failed
@@ -79,12 +82,13 @@ Se `queue:failed` vier vazio e os comandos retornarem sem erro, cron e notificac
 
 ## 6) Troubleshooting rapido
 
-- Se backup falhar, valide se `mysqldump` (MySQL) ou `pg_dump` (PostgreSQL) existe no servidor.
-- Se health check falhar, valide `APP_URL` e `OPS_HEALTHCHECK_URL`.
+- Se backup falhar, valide se `mariadb-dump`/`mysqldump` (MySQL/MariaDB) ou `pg_dump` (PostgreSQL) existe no servidor.
+- Em Hostinger, prefira `DB_HOST=127.0.0.1` para evitar tentativas via `::1`.
+- Se health check alertar divergencia, veja `storage/logs/laravel.log`.
+- Se houver falha de e-mail em fila, rode `php artisan queue:failed` e veja `storage/logs/laravel.log`.
 - Sempre que alterar `.env`, rode:
 
 ```bash
 php artisan optimize:clear
 php artisan optimize
 ```
-

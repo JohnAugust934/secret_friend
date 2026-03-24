@@ -34,6 +34,7 @@ Comando base do worker (executado pelo scheduler):
 - Endpoint nativo do framework: `GET /up`.
 - Trate `/healthz` com status `fail` como incidente.
 - Trate `/healthz` com status `degraded` como alerta.
+- Logs operacionais: `storage/logs/laravel.log`.
 
 ## 5) Gate de CI
 
@@ -48,6 +49,8 @@ Todo PR deve passar em:
 Comandos Artisan operacionais:
 - `php artisan ops:backup-db`
 - `php artisan ops:health-check`
+- `php artisan ops:check-failed-mails`
+- `php artisan ops:restore-db /caminho/arquivo.sql --force`
 - `php artisan ops:notify "Teste" --level=warning --context=manual`
 
 Canal de alerta (regra de prioridade):
@@ -57,8 +60,11 @@ Canal de alerta (regra de prioridade):
 Variaveis recomendadas:
 - `OPS_HEALTHCHECK_URL=${APP_URL}/healthz`
 - `OPS_BACKUP_RETENTION_DAYS=14`
+- `OPS_MYSQL_DUMP_BINARY=/usr/bin/mariadb-dump`
+- `OPS_MYSQL_RESTORE_BINARY=/usr/bin/mariadb`
 
-Faca simulacao de restore regularmente em staging.
+Restore detalhado:
+- Veja `docs/DISASTER_RECOVERY.md`.
 
 ## 7) Checklist pre-go-live
 

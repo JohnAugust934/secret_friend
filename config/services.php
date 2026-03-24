@@ -46,6 +46,7 @@ return [
         'healthcheck_url' => env('OPS_HEALTHCHECK_URL', ''),
         'backup_retention_days' => (int) env('OPS_BACKUP_RETENTION_DAYS', 14),
         'mysql_dump_binary' => env('OPS_MYSQL_DUMP_BINARY', ''),
+        'mysql_restore_binary' => env('OPS_MYSQL_RESTORE_BINARY', ''),
     ],
 
 ];
