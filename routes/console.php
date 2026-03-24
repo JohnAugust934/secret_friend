@@ -81,45 +81,115 @@ Artisan::command('ops:readiness', function () {
 })->purpose('Run production readiness checks (db/cache/queue/security)');
 
 Artisan::command('ops:notify {message} {--level=error} {--context=}', function () {
-    $message = (string) $this->argument('message');
+    $message = trim((string) $this->argument('message'));
     $level = strtoupper((string) $this->option('level'));
     $context = (string) $this->option('context');
 
     $appName = (string) config('app.name', 'Amigo Secreto');
     $appUrl = (string) config('app.url', '');
     $appEnv = (string) config('app.env', 'production');
-    $timestamp = now()->toIso8601String();
-    $title = match (strtolower($level)) {
-        'error' => 'ALERTA OPERACIONAL',
-        'warning' => 'ATENCAO OPERACIONAL',
-        'info' => 'INFO OPERACIONAL',
-        default => 'NOTIFICACAO OPERACIONAL',
+    $timezone = (string) config('app.timezone', 'UTC');
+    $now = now()->setTimezone($timezone);
+    $timestampIso = $now->toIso8601String();
+    $timestampHuman = $now->format('d/m/Y H:i:s').' ('.$timezone.')';
+    $levelKey = strtolower($level);
+    $eventLabel = match (strtolower($context)) {
+        'backup-db' => 'BACKUP',
+        'healthz' => 'HEALTH CHECK',
+        'queue-mail' => 'EMAIL FILA',
+        'restore-db' => 'RESTORE',
+        'schedule-cron' => 'SCHEDULER',
+        'queue-cron' => 'FILA',
+        default => 'OPERACAO',
+    };
+    $statusLabel = match ($levelKey) {
+        'error' => 'FALHA',
+        'warning' => 'ATENCAO',
+        'info' => 'OK',
+        default => strtoupper($levelKey),
+    };
+    $title = "{$eventLabel} {$statusLabel}";
+    $icon = match ($levelKey) {
+        'error' => '🚨',
+        'warning' => '🟠',
+        'info' => '🟢',
+        default => '🔔',
+    };
+    $priority = match ($levelKey) {
+        'error' => 'Alta',
+        'warning' => 'Media',
+        'info' => 'Baixa',
+        default => 'Normal',
     };
 
-    $lines = [
-        $appName,
-        '',
-        $title,
+    $messageLines = preg_split('/\r\n|\r|\n/', $message) ?: [];
+    $messageLines = array_values(array_filter(array_map('trim', $messageLines), static fn ($line) => $line !== ''));
+    $summary = $messageLines[0] ?? '(sem resumo)';
+    $details = array_slice($messageLines, 1);
+
+    $plainLines = [
+        "{$icon} {$title}",
+        "Aplicacao: {$appName}",
         "Nivel: {$level}",
-        "Mensagem: {$message}",
+        "Prioridade: {$priority}",
+        "Resumo: {$summary}",
     ];
 
-    if ($context !== '') {
-        $lines[] = "Contexto: {$context}";
+    if ($details !== []) {
+        $plainLines[] = 'Detalhes:';
+        foreach ($details as $detail) {
+            $plainLines[] = "- {$detail}";
+        }
     }
 
-    $lines[] = "Ambiente: {$appEnv}";
-    $lines[] = "Hora: {$timestamp}";
+    if ($context !== '') {
+        $plainLines[] = "Contexto: {$context}";
+    }
+
+    $plainLines[] = "Ambiente: {$appEnv}";
+    $plainLines[] = "Hora: {$timestampHuman}";
+    $plainLines[] = "Hora (ISO): {$timestampIso}";
 
     if ($appUrl !== '') {
-        $lines[] = "URL: {$appUrl}";
+        $plainLines[] = "URL: {$appUrl}";
     }
 
-    if (in_array(strtolower($level), ['error', 'warning'], true)) {
-        $lines[] = "Acao sugerida: revisar storage/logs/laravel.log";
+    if (in_array($levelKey, ['error', 'warning'], true)) {
+        $plainLines[] = 'Acao sugerida: revisar storage/logs/laravel.log';
     }
 
-    $fullMessage = implode("\n", $lines);
+    $plainMessage = implode("\n", $plainLines);
+
+    $esc = static fn (string $value): string => htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $telegramLines = [
+        "{$icon} <b>{$esc($title)}</b>",
+        "<b>Aplicacao:</b> {$esc($appName)}",
+        "<b>Nivel:</b> {$esc($level)}",
+        "<b>Prioridade:</b> {$esc($priority)}",
+        "<b>Resumo:</b> {$esc($summary)}",
+    ];
+
+    if ($details !== []) {
+        $telegramLines[] = '<b>Detalhes:</b>';
+        foreach ($details as $detail) {
+            $telegramLines[] = "• {$esc($detail)}";
+        }
+    }
+
+    if ($context !== '') {
+        $telegramLines[] = "<b>Contexto:</b> {$esc($context)}";
+    }
+
+    $telegramLines[] = "<b>Ambiente:</b> {$esc($appEnv)}";
+    $telegramLines[] = "<b>Hora:</b> {$esc($timestampHuman)}";
+    if ($appUrl !== '') {
+        $telegramLines[] = "<b>URL:</b> {$esc($appUrl)}";
+    }
+    if (in_array($levelKey, ['error', 'warning'], true)) {
+        $telegramLines[] = '<b>Acao sugerida:</b> revisar <code>storage/logs/laravel.log</code>';
+    }
+
+    $telegramText = implode("\n", $telegramLines);
 
     $telegramToken = (string) (config('services.telegram.bot_token') ?? '');
     $telegramChatId = (string) (config('services.telegram.chat_id') ?? '');
@@ -130,7 +200,8 @@ Artisan::command('ops:notify {message} {--level=error} {--context=}', function (
             ->timeout(10)
             ->post("https://api.telegram.org/bot{$telegramToken}/sendMessage", [
                 'chat_id' => $telegramChatId,
-                'text' => $fullMessage,
+                'text' => $telegramText,
+                'parse_mode' => 'HTML',
                 'disable_web_page_preview' => true,
             ]);
 
@@ -153,10 +224,40 @@ Artisan::command('ops:notify {message} {--level=error} {--context=}', function (
         return 1;
     }
 
-    $subject = "[{$appName}] [{$level}] {$title}";
-    $body = $fullMessage;
+    $subject = "[{$appName}] [{$level}] {$icon} {$title}";
+    $emailHtml = '<div style="font-family:Arial,Helvetica,sans-serif;line-height:1.5">'
+        .'<h2 style="margin:0 0 12px 0;">'.$esc($icon.' '.$title).'</h2>'
+        .'<p style="margin:0 0 6px 0;"><strong>Aplicacao:</strong> '.$esc($appName).'</p>'
+        .'<p style="margin:0 0 6px 0;"><strong>Nivel:</strong> '.$esc($level).'</p>'
+        .'<p style="margin:0 0 6px 0;"><strong>Prioridade:</strong> '.$esc($priority).'</p>'
+        .'<p style="margin:0 0 6px 0;"><strong>Resumo:</strong> '.$esc($summary).'</p>';
 
-    Mail::raw($body, function ($mail) use ($alertEmail, $subject): void {
+    if ($details !== []) {
+        $emailHtml .= '<p style="margin:10px 0 6px 0;"><strong>Detalhes:</strong></p><ul style="margin-top:0;">';
+        foreach ($details as $detail) {
+            $emailHtml .= '<li>'.$esc($detail).'</li>';
+        }
+        $emailHtml .= '</ul>';
+    }
+
+    if ($context !== '') {
+        $emailHtml .= '<p style="margin:0 0 6px 0;"><strong>Contexto:</strong> '.$esc($context).'</p>';
+    }
+
+    $emailHtml .= '<p style="margin:0 0 6px 0;"><strong>Ambiente:</strong> '.$esc($appEnv).'</p>'
+        .'<p style="margin:0 0 6px 0;"><strong>Hora:</strong> '.$esc($timestampHuman).'</p>';
+
+    if ($appUrl !== '') {
+        $emailHtml .= '<p style="margin:0 0 6px 0;"><strong>URL:</strong> '.$esc($appUrl).'</p>';
+    }
+
+    if (in_array($levelKey, ['error', 'warning'], true)) {
+        $emailHtml .= '<p style="margin:12px 0 0 0;"><strong>Acao sugerida:</strong> revisar <code>storage/logs/laravel.log</code></p>';
+    }
+
+    $emailHtml .= '<hr style="margin:16px 0;"><pre style="white-space:pre-wrap;">'.$esc($plainMessage).'</pre></div>';
+
+    Mail::html($emailHtml, function ($mail) use ($alertEmail, $subject): void {
         $mail->to($alertEmail)->subject($subject);
     });
 
@@ -228,7 +329,7 @@ Artisan::command('ops:health-check {--url=}', function () use ($notifyOps) {
 
     if ($status === 'fail' || $status === 'unknown') {
         $notifyOps(
-            "Health check com falha: status={$status}. Divergencias: {$detailText}. Verifique storage/logs/laravel.log",
+            "Health check com falha\nStatus: {$status}\nDivergencias: {$detailText}\nVerifique storage/logs/laravel.log",
             'error',
             'healthz'
         );
@@ -245,7 +346,7 @@ Artisan::command('ops:health-check {--url=}', function () use ($notifyOps) {
 
     if ($status === 'degraded') {
         $notifyOps(
-            "Health check degradado. Divergencias: {$detailText}. Verifique storage/logs/laravel.log",
+            "Health check degradado\nDivergencias: {$detailText}\nVerifique storage/logs/laravel.log",
             'warning',
             'healthz'
         );
@@ -455,7 +556,7 @@ Artisan::command('ops:backup-db {--output=} {--retention-days=}', function () us
 
     if (! $integrityOk) {
         $notifyOps(
-            "Backup criado, mas integridade basica falhou. Arquivo: ".basename($outFile).". Verifique storage/logs/laravel.log",
+            "Integridade do backup falhou\nArquivo: ".basename($outFile)."\nMotivo: {$integritySummary}\nVerifique storage/logs/laravel.log",
             'error',
             'backup-db'
         );
@@ -485,7 +586,7 @@ Artisan::command('ops:backup-db {--output=} {--retention-days=}', function () us
     $this->info("Backups antigos removidos: {$deleted}");
     $this->info("SHA256: {$sha256}");
     $notifyOps(
-        'Backup realizado com integridade basica OK. Arquivo: '.basename($outFile).". Tamanho: {$size} bytes. SHA256: {$sha256}",
+        "Backup realizado com integridade basica OK\nArquivo: ".basename($outFile)."\nTamanho: {$size} bytes\nSHA256: {$sha256}",
         'info',
         'backup-db'
     );
@@ -558,8 +659,7 @@ Artisan::command('ops:check-failed-mails', function () use ($notifyOps) {
     $firstError = substr($firstError, 0, 220);
     $count = $mailFailures->count();
 
-    $message = "Falha de envio de e-mail detectada em fila ({$count} novo(s)). ".
-        "Erro: {$firstError}. Verifique storage/logs/laravel.log e rode 'php artisan queue:failed'.";
+    $message = "Falha de envio de e-mail detectada em fila\nOcorrencias novas: {$count}\nErro resumido: {$firstError}\nVerifique storage/logs/laravel.log e rode: php artisan queue:failed";
 
     $notifyOps($message, 'error', 'queue-mail');
     Log::error('ops.queue.mail_failed', [
@@ -715,7 +815,7 @@ Artisan::command('ops:restore-db {file} {--force} {--skip-pre-backup}', function
     }
 
     $notifyOps(
-        'Restore de banco concluido com sucesso. Arquivo: '.basename($restoreFile).". Verifique storage/logs/laravel.log",
+        "Restore de banco concluido com sucesso\nArquivo: ".basename($restoreFile)."\nVerifique storage/logs/laravel.log",
         'warning',
         'restore-db'
     );
@@ -727,6 +827,44 @@ Artisan::command('ops:restore-db {file} {--force} {--skip-pre-backup}', function
 
     return 0;
 })->purpose('Restore database from backup file (requires --force, with optional pre-backup)');
+
+Artisan::command('ops:test-notifications', function () {
+    $tests = [
+        [
+            'message' => "Backup realizado com integridade basica OK\nArquivo: backup_mysql_20260324_120000.sql\nTamanho: 26839 bytes\nSHA256: abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+            'level' => 'info',
+            'context' => 'backup-db',
+        ],
+        [
+            'message' => "Health check degradado\nDivergencias: queue=degraded (Pendentes: 42 | Falhos: 2)\nVerifique storage/logs/laravel.log",
+            'level' => 'warning',
+            'context' => 'healthz',
+        ],
+        [
+            'message' => "Falha de envio de e-mail detectada em fila\nOcorrencias novas: 3\nErro resumido: SMTP timeout ao conectar no host smtp.example.com:465\nVerifique storage/logs/laravel.log e rode: php artisan queue:failed",
+            'level' => 'error',
+            'context' => 'queue-mail',
+        ],
+    ];
+
+    foreach ($tests as $index => $test) {
+        $code = Artisan::call('ops:notify', [
+            'message' => $test['message'],
+            '--level' => $test['level'],
+            '--context' => $test['context'],
+        ]);
+
+        if ($code !== 0) {
+            $this->error('Falha no teste #'.($index + 1).' ('.$test['level'].').');
+
+            return 1;
+        }
+    }
+
+    $this->info('Notificacoes de teste enviadas: INFO, WARNING e ERROR.');
+
+    return 0;
+})->purpose('Send sample operational notifications (info/warning/error) to validate Telegram/email formatting');
 
 Schedule::command('queue:work --stop-when-empty --tries=3 --timeout=120')
     ->everyMinute();
