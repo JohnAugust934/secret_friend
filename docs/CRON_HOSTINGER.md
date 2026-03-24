@@ -1,91 +1,86 @@
-# Cron na Hostinger (Linux)
+﻿# Cron na Hostinger (Laravel Scheduler com 1 comando)
 
-Este guia assume que seu projeto esta em:
-`/home/SEU_USUARIO/domains/SEU_DOMINIO/public_html`
+Este guia esta ajustado para seu caminho real:
+`/home/u810081012/domains/on3digital.com.br/public_html/secretFriend`
 
-Ajuste o caminho conforme seu painel Hostinger.
+Objetivo:
+- Rodar tudo via Scheduler do Laravel.
+- Usar apenas 1 cron no hPanel.
+- Sem dependencia dos scripts `.sh` para producao.
 
-## 1) Configurar canal de alerta
-
-No `.env` de producao:
-
-- Telegram (prioridade, se configurado):
-  - `TELEGRAM_BOT_TOKEN=...`
-  - `TELEGRAM_CHAT_ID=...`
-- Fallback e-mail (somente se Telegram NAO estiver configurado):
-  - `OPS_ALERT_EMAIL=seu-email@dominio.com`
-
-Regra implementada:
-- Se Telegram estiver configurado, alerta vai somente para Telegram.
-- Se Telegram nao estiver configurado, alerta vai para e-mail.
-
-## 2) Permissoes iniciais
-
-Execute via SSH uma vez:
+## 1) Pre-requisitos (uma vez via SSH)
 
 ```bash
-cd /home/SEU_USUARIO/domains/SEU_DOMINIO/public_html
-chmod +x scripts/ops/*.sh
-mkdir -p storage/backups storage/logs
+cd /home/u810081012/domains/on3digital.com.br/public_html/secretFriend
+php artisan migrate --force
+php artisan optimize:clear
+php artisan optimize
 ```
 
-## 3) Comandos recomendados no Cron Jobs
-
-### 3.1 Health check a cada 5 minutos (com alerta automatico)
-
-```cron
-*/5 * * * * cd /home/SEU_USUARIO/domains/SEU_DOMINIO/public_html && ./scripts/ops/check-health.sh https://SEU_DOMINIO/healthz >> storage/logs/health-cron.log 2>&1
-```
-
-### 3.2 Backup diario as 02:30 (com alerta em falha)
-
-```cron
-30 2 * * * cd /home/SEU_USUARIO/domains/SEU_DOMINIO/public_html && ./scripts/ops/backup-db.sh >> storage/logs/backup-cron.log 2>&1
-```
-
-### 3.3 Worker de fila fallback (shared hosting) a cada minuto (com alerta em falha)
-
-```cron
-* * * * * cd /home/SEU_USUARIO/domains/SEU_DOMINIO/public_html && ./scripts/ops/run-queue-once.sh >> storage/logs/queue-cron.log 2>&1
-```
-
-### 3.4 Scheduler do Laravel a cada minuto (com alerta em falha)
-
-```cron
-* * * * * cd /home/SEU_USUARIO/domains/SEU_DOMINIO/public_html && ./scripts/ops/run-scheduler.sh >> storage/logs/scheduler-cron.log 2>&1
-```
-
-## 4) Como cadastrar no painel Hostinger
-
-1. Acesse `hPanel > Advanced > Cron Jobs`.
-2. Clique em `Create cron job`.
-3. Cole um dos comandos acima no campo de comando.
-4. Configure o agendamento conforme cada exemplo.
-5. Salve e valide os logs em `storage/logs`.
-
-## 5) Testes manuais rapidos
-
-### 5.1 Testar envio de alerta (sem erro real)
-
-```bash
-cd /home/SEU_USUARIO/domains/SEU_DOMINIO/public_html
-php artisan ops:notify "Teste manual de alerta" --level=warning --context=manual-test
-```
-
-### 5.2 Validar saude
-
-```bash
-cd /home/SEU_USUARIO/domains/SEU_DOMINIO/public_html
-php artisan ops:readiness
-curl -sS https://SEU_DOMINIO/healthz
-```
-
-## 6) Variaveis obrigatorias recomendadas
-
-No `.env` de producao, configure tambem:
+## 2) Configuracao no .env (producao)
 
 ```env
-OPS_STATUS_ALLOWED_EMAILS=admin@seu-dominio.com
+QUEUE_CONNECTION=database
+MAIL_MAILER=smtp
+
+# Alertas (Telegram tem prioridade)
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=
+OPS_ALERT_EMAIL=ops@on3digital.com.br
+
+# URL usada pelo comando ops:health-check
+OPS_HEALTHCHECK_URL=${APP_URL}/healthz
+
+# Retencao dos backups em dias
+OPS_BACKUP_RETENTION_DAYS=14
+
+# Painel operacional
+OPS_STATUS_ALLOWED_EMAILS=admin@on3digital.com.br
 ```
 
-Isso libera acesso ao painel `https://SEU_DOMINIO/ops/status`.
+## 3) Unico cron para cadastrar no hPanel
+
+No `hPanel > Advanced > Cron Jobs`, cadastre:
+
+Tempo:
+- `* * * * *`
+
+Comando:
+
+```cron
+/opt/alt/php84/usr/bin/php /home/u810081012/domains/on3digital.com.br/public_html/secretFriend/artisan schedule:run >> /dev/null 2>&1
+```
+
+## 4) O que esse cron unico vai executar
+
+Agendamentos definidos dentro do sistema:
+
+- Fila (envio de notificacoes/e-mails em fila): a cada 1 minuto
+- Health check: a cada 5 minutos
+- Backup de banco: diariamente as 02:30
+
+Tudo controlado em `routes/console.php` via Laravel Scheduler.
+
+## 5) Validacao rapida apos configurar
+
+```bash
+cd /home/u810081012/domains/on3digital.com.br/public_html/secretFriend
+php artisan schedule:list
+php artisan ops:health-check
+php artisan ops:backup-db
+php artisan queue:work --stop-when-empty --tries=1
+php artisan queue:failed
+```
+
+Se `queue:failed` vier vazio e os comandos retornarem sem erro, cron e notificacoes estao operando corretamente.
+
+## 6) Troubleshooting rapido
+
+- Se backup falhar, valide se `mysqldump` (MySQL) ou `pg_dump` (PostgreSQL) existe no servidor.
+- Se health check falhar, valide `APP_URL` e `OPS_HEALTHCHECK_URL`.
+- Sempre que alterar `.env`, rode:
+
+```bash
+php artisan optimize:clear
+php artisan optimize
+```

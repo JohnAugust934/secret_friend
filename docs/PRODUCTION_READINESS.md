@@ -22,11 +22,11 @@ Este documento define o minimo necessario para liberar o sistema com seguranca e
 ## 3) Confiabilidade de fila
 
 - Use `QUEUE_CONNECTION=database` em producao.
-- Rode workers com supervisor/systemd (VPS) ou cron de fallback (shared hosting).
+- Em shared hosting, processe fila via Scheduler (cron unico + `schedule:run`).
 - Monitore `failed_jobs` e trate falhas rapidamente.
 
-Comando base do worker:
-`php artisan queue:work --sleep=1 --tries=3 --timeout=120 --backoff=5`
+Comando base do worker (executado pelo scheduler):
+`php artisan queue:work --stop-when-empty --tries=3 --timeout=120`
 
 ## 4) Saude e monitoramento
 
@@ -43,34 +43,28 @@ Todo PR deve passar em:
 - `php artisan test`
 - teste de cache (`config:cache`, `route:cache`, `view:cache`)
 
-## 6) Backup, restore e alertas
+## 6) Backup, monitoramento e alertas
 
-Scripts Linux (Hostinger/VPS):
-- `scripts/ops/backup-db.sh`
-- `scripts/ops/restore-db.sh`
-- `scripts/ops/check-health.sh`
-- `scripts/ops/run-queue-once.sh`
-- `scripts/ops/run-scheduler.sh`
-
-Scripts Windows (local):
-- `scripts/ops/backup-db.ps1`
-- `scripts/ops/restore-db.ps1`
-- `scripts/ops/check-health.ps1`
+Comandos Artisan operacionais:
+- `php artisan ops:backup-db`
+- `php artisan ops:health-check`
+- `php artisan ops:notify "Teste" --level=warning --context=manual`
 
 Canal de alerta (regra de prioridade):
 - Se `TELEGRAM_BOT_TOKEN` e `TELEGRAM_CHAT_ID` estiverem configurados, alerta vai somente para Telegram.
 - Se Telegram nao estiver configurado, alerta vai para `OPS_ALERT_EMAIL`.
 
-Comando manual de teste:
-- `php artisan ops:notify "Teste" --level=warning --context=manual`
+Variaveis recomendadas:
+- `OPS_HEALTHCHECK_URL=${APP_URL}/healthz`
+- `OPS_BACKUP_RETENTION_DAYS=14`
 
 Faca simulacao de restore regularmente em staging.
 
 ## 7) Checklist pre-go-live
 
 1. `php artisan migrate --force`
-2. `php artisan optimize`
-3. Subir worker de fila e validar supervisao do processo.
+2. `php artisan optimize:clear && php artisan optimize`
+3. Confirmar cron unico no Hostinger para `schedule:run`.
 4. Validar `/healthz` e `/up`.
 5. Testar fluxo real: login, convite, sorteio e e-mail.
 6. Confirmar ausencia de alertas criticos e `failed_jobs` pendentes.
@@ -81,7 +75,7 @@ Use `scripts/ops/k6-smoke.js` antes de cada release e ajuste URL/VUs conforme o 
 
 ## 9) Cron na Hostinger
 
-Veja `docs/CRON_HOSTINGER.md` para comandos prontos.
+Veja `docs/CRON_HOSTINGER.md` para configuracao com 1 comando.
 
 ## 10) Telemetria e status
 

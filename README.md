@@ -1,48 +1,48 @@
-# 🎁 Gerenciador de Amigo Secreto
+﻿# ðŸŽ Gerenciador de Amigo Secreto
 
 ![Laravel](https://img.shields.io/badge/Laravel-12.x-FF2D20?style=for-the-badge&logo=laravel&logoColor=white)
 ![PHP](https://img.shields.io/badge/PHP-8.2+-777BB4?style=for-the-badge&logo=php&logoColor=white)
 ![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
-Um sistema web moderno, seguro e fácil de usar para organizar eventos de **Amigo Secreto** (Secret Santa). Chega de papeizinhos! Crie grupos, convide amigos via link, defina orçamentos e deixe o sistema realizar o sorteio automaticamente.
+Um sistema web moderno, seguro e fÃ¡cil de usar para organizar eventos de **Amigo Secreto** (Secret Santa). Chega de papeizinhos! Crie grupos, convide amigos via link, defina orÃ§amentos e deixe o sistema realizar o sorteio automaticamente.
 
 ---
 
-## 🚀 Demo em Produção
+## ðŸš€ Demo em ProduÃ§Ã£o
 
-O projeto está rodando ao vivo e pode ser acessado no link abaixo:
+O projeto estÃ¡ rodando ao vivo e pode ser acessado no link abaixo:
 
-👉 **[sfriend.on3digital.com.br](https://sfriend.on3digital.com.br/)**
+ðŸ‘‰ **[sfriend.on3digital.com.br](https://sfriend.on3digital.com.br/)**
 
 ---
 
-## ✨ Funcionalidades
+## âœ¨ Funcionalidades
 
 O sistema foi desenvolvido para ser intuitivo e direto ao ponto:
 
--   **👤 Autenticação Completa:** Cadastro, login e recuperação de senha seguros.
--   **👥 Gerenciamento de Grupos:**
-    -   Crie múltiplos grupos (ex: "Família", "Trabalho").
-    -   Defina **data do evento**, **orçamento sugerido** e descrição.
+-   **ðŸ‘¤ AutenticaÃ§Ã£o Completa:** Cadastro, login e recuperaÃ§Ã£o de senha seguros.
+-   **ðŸ‘¥ Gerenciamento de Grupos:**
+    -   Crie mÃºltiplos grupos (ex: "FamÃ­lia", "Trabalho").
+    -   Defina **data do evento**, **orÃ§amento sugerido** e descriÃ§Ã£o.
     -   Apenas o dono do grupo (admin) pode editar ou excluir o grupo.
--   **🔗 Sistema de Convites:**
-    -   Geração de links únicos com tokens de convite.
-    -   Qualquer pessoa com o link pode entrar no grupo (após logar/cadastrar).
--   **📝 Lista de Desejos (Wishlist):**
+-   **ðŸ”— Sistema de Convites:**
+    -   GeraÃ§Ã£o de links Ãºnicos com tokens de convite.
+    -   Qualquer pessoa com o link pode entrar no grupo (apÃ³s logar/cadastrar).
+-   **ðŸ“ Lista de Desejos (Wishlist):**
     -   Cada participante pode escrever o que gostaria de ganhar.
-    -   A lista é visível para quem te tirou.
-    -   *Bloqueio de edição:* Após o sorteio, a lista não pode ser alterada para evitar confusões.
--   **🎲 Sorteio Automático:**
-    -   Algoritmo inteligente que garante que ninguém tire a si mesmo.
-    -   O sorteio é realizado com um clique pelo administrador.
-    -   Resultado sigiloso: cada um vê apenas o seu par.
--   **🚫 Moderação:**
+    -   A lista Ã© visÃ­vel para quem te tirou.
+    -   *Bloqueio de ediÃ§Ã£o:* ApÃ³s o sorteio, a lista nÃ£o pode ser alterada para evitar confusÃµes.
+-   **ðŸŽ² Sorteio AutomÃ¡tico:**
+    -   Algoritmo inteligente que garante que ninguÃ©m tire a si mesmo.
+    -   O sorteio Ã© realizado com um clique pelo administrador.
+    -   Resultado sigiloso: cada um vÃª apenas o seu par.
+-   **ðŸš« ModeraÃ§Ã£o:**
     -   O administrador pode remover membros antes do sorteio acontecer.
 
 ---
 
-## 🛠️ Tecnologias Utilizadas
+## ðŸ› ï¸ Tecnologias Utilizadas
 
 Este projeto utiliza a stack moderna do ecossistema PHP:
 
@@ -54,11 +54,11 @@ Este projeto utiliza a stack moderna do ecossistema PHP:
 
 ---
 
-## 💻 Instalação e Auto-Hospedagem (Self-Hosting)
+## ðŸ’» InstalaÃ§Ã£o e Auto-Hospedagem (Self-Hosting)
 
 Siga os passos abaixo para rodar o projeto localmente ou em seu servidor.
 
-### Pré-requisitos
+### PrÃ©-requisitos
 
 -   PHP 8.2 ou superior
 -   Composer
@@ -67,13 +67,13 @@ Siga os passos abaixo para rodar o projeto localmente ou em seu servidor.
 
 ### Passo a Passo
 
-1.  **Clone o repositório:**
+1.  **Clone o repositÃ³rio:**
     ```bash
     git clone [https://github.com/seu-usuario/secret-friend.git](https://github.com/seu-usuario/secret-friend.git)
     cd secret-friend
     ```
 
-2.  **Instale as dependências do PHP:**
+2.  **Instale as dependÃªncias do PHP:**
     ```bash
     composer install
     ```
@@ -84,12 +84,12 @@ Siga os passos abaixo para rodar o projeto localmente ou em seu servidor.
     ```
     *Abra o arquivo `.env` e configure suas credenciais de banco de dados (`DB_DATABASE`, `DB_USERNAME`, etc).*
 
-4.  **Gere a chave da aplicação:**
+4.  **Gere a chave da aplicaÃ§Ã£o:**
     ```bash
     php artisan key:generate
     ```
 
-5.  **Execute as migrações (Criação das tabelas):**
+5.  **Execute as migraÃ§Ãµes (CriaÃ§Ã£o das tabelas):**
     ```bash
     php artisan migrate
     ```
@@ -108,37 +108,37 @@ Siga os passos abaixo para rodar o projeto localmente ou em seu servidor.
 
 ---
 
-## 🤝 Como Contribuir
+## ðŸ¤ Como Contribuir
 
-Contribuições são sempre bem-vindas! Se você quiser adicionar uma nova funcionalidade ou corrigir um bug:
+ContribuiÃ§Ãµes sÃ£o sempre bem-vindas! Se vocÃª quiser adicionar uma nova funcionalidade ou corrigir um bug:
 
-1.  Faça um **Fork** do projeto.
+1.  FaÃ§a um **Fork** do projeto.
 2.  Crie uma Branch para sua feature (`git checkout -b feature/MinhaNovaFeature`).
-3.  Faça o Commit (`git commit -m 'Adiciona nova feature'`).
-4.  Faça o Push (`git push origin feature/MinhaNovaFeature`).
+3.  FaÃ§a o Commit (`git commit -m 'Adiciona nova feature'`).
+4.  FaÃ§a o Push (`git push origin feature/MinhaNovaFeature`).
 5.  Abra um **Pull Request**.
 
 ---
 
-## 📂 Estrutura Principal
+## ðŸ“‚ Estrutura Principal
 
-Para quem deseja entender o código, os principais arquivos lógicos estão em:
+Para quem deseja entender o cÃ³digo, os principais arquivos lÃ³gicos estÃ£o em:
 
--   `app/Http/Controllers/GroupController.php`: Lógica de criação, sorteio e gestão de membros.
--   `app/Models/Group.php`: Modelo do grupo e relações.
+-   `app/Http/Controllers/GroupController.php`: LÃ³gica de criaÃ§Ã£o, sorteio e gestÃ£o de membros.
+-   `app/Models/Group.php`: Modelo do grupo e relaÃ§Ãµes.
 -   `app/Models/Pairing.php`: Modelo que armazena os pares sorteados (Santa -> Giftee).
--   `routes/web.php`: Definição de todas as rotas e proteções via middleware.
+-   `routes/web.php`: DefiniÃ§Ã£o de todas as rotas e proteÃ§Ãµes via middleware.
 
 ---
 
-## 📄 Licença
+## ðŸ“„ LicenÃ§a
 
-Este projeto é open-source e licenciado sob a [MIT License](LICENSE).
+Este projeto Ã© open-source e licenciado sob a [MIT License](LICENSE).
 
 ---
 
 <p align="center">
-  Desenvolvido com ❤️ para unir amigos e famílias.
+  Desenvolvido com â¤ï¸ para unir amigos e famÃ­lias.
 </p>
 ---
 
@@ -147,13 +147,12 @@ Este projeto é open-source e licenciado sob a [MIT License](LICENSE).
 - Endpoints de saude: `/up` e `/healthz`.
 - Check de prontidao: `php artisan ops:readiness`.
 - Pipeline CI: `.github/workflows/ci.yml`.
-- Scripts operacionais Linux:
-  - `scripts/ops/backup-db.sh`
-  - `scripts/ops/restore-db.sh`
-  - `scripts/ops/check-health.sh`
-  - `scripts/ops/run-queue-once.sh`
-  - `scripts/ops/run-scheduler.sh`
-  - `scripts/ops/supervisor-queue.conf`
+- Operacao via comandos Artisan + Scheduler:
+  - `php artisan ops:backup-db`
+  - `php artisan ops:health-check`
+  - `php artisan queue:work --stop-when-empty --tries=3 --timeout=120`
+  - `php artisan schedule:list`
+  - `scripts/ops/supervisor-queue.conf` (cenario VPS com supervisor)
   - `scripts/ops/k6-smoke.js`
 - Regra de alerta:
   - Se Telegram estiver configurado (`TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID`), envia somente Telegram.
@@ -175,3 +174,4 @@ Este projeto é open-source e licenciado sob a [MIT License](LICENSE).
 - Painel de status operacional: `/ops/status` (acesso controlado por `OPS_STATUS_ALLOWED_EMAILS`).
 - Testes E2E: `npm run e2e`.
 - Carga concorrente focada em convite/sorteio: `scripts/ops/k6-concurrency.js`.
+
