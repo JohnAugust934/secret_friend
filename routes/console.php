@@ -27,6 +27,19 @@ $normalizeDbHost = static function (string $host): string {
     return in_array(strtolower($host), ['localhost', '::1'], true) ? '127.0.0.1' : $host;
 };
 
+$sanitizeEnvCommandPath = static function (string $value): string {
+    $clean = str_replace(["`r`n", "`n", "`r", "\r\n", "\n", "\r"], ' ', $value);
+    $clean = trim((string) preg_replace('/\s+/', ' ', $clean));
+
+    if ($clean === '') {
+        return '';
+    }
+
+    $parts = preg_split('/\s+/', $clean);
+
+    return $parts[0] ?? '';
+};
+
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
@@ -72,30 +85,52 @@ Artisan::command('ops:notify {message} {--level=error} {--context=}', function (
     $level = strtoupper((string) $this->option('level'));
     $context = (string) $this->option('context');
 
-    $fullMessage = "[{$level}] {$message}";
-    if ($context !== '') {
-        $fullMessage .= "\nContexto: {$context}";
-    }
-
     $appName = (string) config('app.name', 'Amigo Secreto');
     $appUrl = (string) config('app.url', '');
+    $appEnv = (string) config('app.env', 'production');
     $timestamp = now()->toIso8601String();
+    $title = match (strtolower($level)) {
+        'error' => 'ALERTA OPERACIONAL',
+        'warning' => 'ATENCAO OPERACIONAL',
+        'info' => 'INFO OPERACIONAL',
+        default => 'NOTIFICACAO OPERACIONAL',
+    };
+
+    $lines = [
+        $appName,
+        '',
+        $title,
+        "Nivel: {$level}",
+        "Mensagem: {$message}",
+    ];
+
+    if ($context !== '') {
+        $lines[] = "Contexto: {$context}";
+    }
+
+    $lines[] = "Ambiente: {$appEnv}";
+    $lines[] = "Hora: {$timestamp}";
+
+    if ($appUrl !== '') {
+        $lines[] = "URL: {$appUrl}";
+    }
+
+    if (in_array(strtolower($level), ['error', 'warning'], true)) {
+        $lines[] = "Acao sugerida: revisar storage/logs/laravel.log";
+    }
+
+    $fullMessage = implode("\n", $lines);
 
     $telegramToken = (string) (config('services.telegram.bot_token') ?? '');
     $telegramChatId = (string) (config('services.telegram.chat_id') ?? '');
 
     // Regra solicitada: se Telegram estiver configurado, usa APENAS Telegram.
     if ($telegramToken !== '' && $telegramChatId !== '') {
-        $text = "{$appName}\n{$fullMessage}\nHora: {$timestamp}";
-        if ($appUrl !== '') {
-            $text .= "\nURL: {$appUrl}";
-        }
-
         $response = Http::asForm()
             ->timeout(10)
             ->post("https://api.telegram.org/bot{$telegramToken}/sendMessage", [
                 'chat_id' => $telegramChatId,
-                'text' => $text,
+                'text' => $fullMessage,
                 'disable_web_page_preview' => true,
             ]);
 
@@ -118,16 +153,8 @@ Artisan::command('ops:notify {message} {--level=error} {--context=}', function (
         return 1;
     }
 
-    $subject = "[{$appName}] [{$level}] Alerta operacional";
-    $body = "Aplicacao: {$appName}\nMensagem: {$message}\nNivel: {$level}\nHora: {$timestamp}";
-
-    if ($context !== '') {
-        $body .= "\nContexto: {$context}";
-    }
-
-    if ($appUrl !== '') {
-        $body .= "\nURL: {$appUrl}";
-    }
+    $subject = "[{$appName}] [{$level}] {$title}";
+    $body = $fullMessage;
 
     Mail::raw($body, function ($mail) use ($alertEmail, $subject): void {
         $mail->to($alertEmail)->subject($subject);
@@ -237,7 +264,7 @@ Artisan::command('ops:health-check {--url=}', function () use ($notifyOps) {
     return 0;
 })->purpose('Run health check against OPS_HEALTHCHECK_URL (or APP_URL/healthz) and notify on degradation/failure');
 
-Artisan::command('ops:backup-db {--output=} {--retention-days=}', function () use ($notifyOps, $normalizeDbHost) {
+Artisan::command('ops:backup-db {--output=} {--retention-days=}', function () use ($notifyOps, $normalizeDbHost, $sanitizeEnvCommandPath) {
     $connectionName = (string) config('database.default');
     $connection = config("database.connections.{$connectionName}");
 
@@ -337,7 +364,7 @@ Artisan::command('ops:backup-db {--output=} {--retention-days=}', function () us
             return 1;
         }
 
-        $dumpBinary = trim((string) config('services.ops.mysql_dump_binary', ''));
+        $dumpBinary = $sanitizeEnvCommandPath((string) config('services.ops.mysql_dump_binary', ''));
         if ($dumpBinary === '') {
             $dumpBinary = is_file('/usr/bin/mariadb-dump') ? '/usr/bin/mariadb-dump' : 'mysqldump';
         }
@@ -547,7 +574,7 @@ Artisan::command('ops:check-failed-mails', function () use ($notifyOps) {
     return 1;
 })->purpose('Notify when new failed_jobs indicate email delivery failures');
 
-Artisan::command('ops:restore-db {file} {--force} {--skip-pre-backup}', function () use ($notifyOps, $normalizeDbHost) {
+Artisan::command('ops:restore-db {file} {--force} {--skip-pre-backup}', function () use ($notifyOps, $normalizeDbHost, $sanitizeEnvCommandPath) {
     if (! (bool) $this->option('force')) {
         $this->error('Por seguranca, confirme com --force para executar restore.');
 
@@ -627,7 +654,7 @@ Artisan::command('ops:restore-db {file} {--force} {--skip-pre-backup}', function
             return 1;
         }
 
-        $restoreBinary = trim((string) config('services.ops.mysql_restore_binary', ''));
+        $restoreBinary = $sanitizeEnvCommandPath((string) config('services.ops.mysql_restore_binary', ''));
         if ($restoreBinary === '') {
             $restoreBinary = is_file('/usr/bin/mariadb') ? '/usr/bin/mariadb' : 'mysql';
         }
