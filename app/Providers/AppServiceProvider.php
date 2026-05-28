@@ -4,10 +4,8 @@ namespace App\Providers;
 
 use App\Models\GroupMember;
 use App\Observers\GroupMemberObserver;
-use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
-use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
@@ -35,15 +33,6 @@ class AppServiceProvider extends ServiceProvider
         }
 
         $this->configureRateLimiters();
-
-        VerifyEmail::toMailUsing(function (object $notifiable, string $url) {
-            return (new MailMessage)
-                ->subject('Verify your email - Amigo Secreto')
-                ->view('emails.verify-email', [
-                    'url' => $url,
-                    'name' => $notifiable->name,
-                ]);
-        });
     }
 
     private function configureRateLimiters(): void

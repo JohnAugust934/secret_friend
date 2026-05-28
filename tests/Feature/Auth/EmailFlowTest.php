@@ -1,48 +1,134 @@
 <?php
 
+/**
+ * Testes de Feature — Fluxo de E-mail de Verificação e Recuperação de Senha
+ *
+ * Cobre:
+ * - Notificação de verificação é enfileirada (não enviada de forma síncrona) ao registrar.
+ * - Falha ao enfileirar não retorna erro 500 para o usuário.
+ * - Reenvio do link de verificação funciona corretamente.
+ * - Usuário já verificado não recebe novo e-mail ao solicitar reenvio.
+ * - Recuperação de senha enfileira a notificação corretamente.
+ */
+
 use App\Models\User;
+use App\Notifications\VerifyEmailQueued;
 use Illuminate\Auth\Notifications\ResetPassword;
-use Illuminate\Auth\Notifications\VerifyEmail;
-use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Support\Facades\Notification;
 
-beforeEach(function () {
-    $this->withoutMiddleware(ValidateCsrfToken::class);
-});
+// ---------------------------------------------------------------------------
+// Registro — Verificação de E-mail
+// ---------------------------------------------------------------------------
 
-test('novos usuários recebem notificação de verificação de e-mail ao se registrar', function () {
+test('ao registrar, a notificação de verificação é enfileirada (não enviada de forma síncrona)', function () {
     Notification::fake();
 
-    $response = $this->post('/register', [
-        'name' => 'Teste Email',
-        'email' => 'teste@email.com',
-        'password' => 'password',
+    $this->post('/register', [
+        'name'                  => 'João Teste',
+        'email'                 => 'joao@teste.com',
+        'password'              => 'password',
+        'password_confirmation' => 'password',
+    ])->assertRedirect();
+
+    $user = User::where('email', 'joao@teste.com')->firstOrFail();
+
+    // Garante que a nossa VerifyEmailQueued foi despachada, não a padrão do Laravel.
+    Notification::assertSentTo($user, VerifyEmailQueued::class);
+});
+
+test('ao registrar, a notificação de verificação vai para a fila correta (emails)', function () {
+    Notification::fake();
+
+    $this->post('/register', [
+        'name'                  => 'Maria Fila',
+        'email'                 => 'maria@fila.com',
+        'password'              => 'password',
         'password_confirmation' => 'password',
     ]);
 
-    $response->assertRedirect('/dashboard'); // Redireciona, mas o middleware vai barrar depois se não verificar
+    $user = User::where('email', 'maria@fila.com')->firstOrFail();
 
-    // Verifica se a notificação de e-mail foi enviada
     Notification::assertSentTo(
-        User::where('email', 'teste@email.com')->first(),
-        VerifyEmail::class
+        $user,
+        VerifyEmailQueued::class,
+        fn ($notification) => $notification->queue === 'emails'
     );
 });
+
+test('ao registrar, o usuário é criado e autenticado mesmo que o enfileiramento falhe', function () {
+    Notification::fake();
+
+    // Simula falha total no sistema de notificações
+    Notification::shouldReceive('send')->andThrow(new \RuntimeException('Queue connection lost'));
+
+    // O registro deve concluir normalmente — sem erro 500.
+    $response = $this->post('/register', [
+        'name'                  => 'Usuário Resiliente',
+        'email'                 => 'resiliente@teste.com',
+        'password'              => 'password',
+        'password_confirmation' => 'password',
+    ]);
+
+    // O usuário foi criado no banco
+    $this->assertDatabaseHas('users', ['email' => 'resiliente@teste.com']);
+
+    // O redirect aconteceu normalmente (sem 500)
+    $response->assertRedirect();
+    $response->assertStatus(302);
+});
+
+test('ao registrar, o usuário é redirecionado para o dashboard', function () {
+    Notification::fake();
+
+    $this->post('/register', [
+        'name'                  => 'Redirect User',
+        'email'                 => 'redirect@teste.com',
+        'password'              => 'password',
+        'password_confirmation' => 'password',
+    ])->assertRedirect(route('dashboard'));
+});
+
+// ---------------------------------------------------------------------------
+// Reenvio do link de verificação
+// ---------------------------------------------------------------------------
+
+test('usuário não verificado pode solicitar reenvio do link de verificação', function () {
+    Notification::fake();
+
+    $user = User::factory()->unverified()->create();
+
+    $this->actingAs($user)
+        ->post(route('verification.send'))
+        ->assertSessionHas('status', 'verification-link-sent');
+
+    Notification::assertSentTo($user, VerifyEmailQueued::class);
+});
+
+test('usuário já verificado é redirecionado ao dashboard ao solicitar reenvio', function () {
+    Notification::fake();
+
+    // Usuário com email_verified_at preenchido (comportamento padrão da factory)
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->post(route('verification.send'))
+        ->assertRedirect(route('dashboard'));
+
+    // Não deve enviar nova notificação para quem já está verificado
+    Notification::assertNothingSent();
+});
+
+// ---------------------------------------------------------------------------
+// Recuperação de senha
+// ---------------------------------------------------------------------------
 
 test('usuário pode solicitar link de recuperação de senha', function () {
     Notification::fake();
 
     $user = User::factory()->create();
 
-    $response = $this->post('/forgot-password', [
-        'email' => $user->email,
-    ]);
+    $this->post('/forgot-password', ['email' => $user->email])
+        ->assertSessionHas('status', __('We have emailed your password reset link.'));
 
-    $response->assertSessionHas('status', __('We have emailed your password reset link.'));
-
-    // Verifica se a notificação de reset foi enviada
-    Notification::assertSentTo(
-        $user,
-        ResetPassword::class
-    );
+    Notification::assertSentTo($user, ResetPassword::class);
 });

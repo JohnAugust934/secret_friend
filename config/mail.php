@@ -39,11 +39,10 @@ return [
 
         'smtp' => [
             'transport' => 'smtp',
-            'scheme' => (function () {
-                $scheme = env('MAIL_SCHEME');
-
-                return $scheme === 'ssl' ? 'smtps' : $scheme;
-            })(),
+            // NOTA: O Laravel 11+ espera 'smtps' para SSL, mas o .env usa 'ssl' por
+            // conveniência humana. A conversão abaixo é feita via ternário simples
+            // (sem Closure) para compatibilidade com `php artisan config:cache`.
+            'scheme' => env('MAIL_SCHEME') === 'ssl' ? 'smtps' : env('MAIL_SCHEME'),
             'url' => env('MAIL_URL'),
             'host' => env('MAIL_HOST', '127.0.0.1'),
             'port' => env('MAIL_PORT', 2525),

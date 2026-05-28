@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
 
@@ -45,7 +46,22 @@ class RegisteredUserController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
-        event(new Registered($user));
+        // Dispara o evento Registered, que aciona o envio do e-mail de
+        // verificação via fila (VerifyEmailQueued). O try/catch garante
+        // que uma falha inesperada de infraestrutura (ex.: banco cheio,
+        // impossibilidade de enfileirar) nunca resulte em um erro 500
+        // para o usuário — ele é redirecionado normalmente e pode
+        // solicitar o reenvio na tela de verificação de e-mail.
+        try {
+            event(new Registered($user));
+        } catch (\Throwable $e) {
+            Log::error('Falha ao enfileirar e-mail de verificação após cadastro.', [
+                'user_id' => $user->id,
+                'email'   => $user->email,
+                'error'   => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
+            ]);
+        }
 
         Auth::login($user);
 
