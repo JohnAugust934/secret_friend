@@ -20,6 +20,8 @@ class Group extends Model
         'description',
         'event_date',
         'budget',
+        'location',
+        'budget_limit',
     ];
 
     // ISTO É ESSENCIAL PARA O POSTGRES
@@ -44,5 +46,14 @@ class Group extends Model
     public function exclusions()
     {
         return $this->hasMany(Exclusion::class);
+    }
+
+    /**
+     * Histórico de sorteios do grupo (todos os rounds).
+     * Usar ->where('draw_round', N) para filtrar por round específico.
+     */
+    public function pairings()
+    {
+        return $this->hasMany(Pairing::class);
     }
 }

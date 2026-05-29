@@ -38,8 +38,10 @@ class GroupController extends Controller
         $group = Group::forceCreate([
             'name'         => $validated['name'],
             'event_date'   => $validated['event_date'],
-            'budget'       => $validated['budget'],
-            'description'  => $validated['description'],
+            'budget'       => $validated['budget'] ?? null,
+            'budget_limit' => $validated['budget_limit'] ?? null,
+            'location'     => $validated['location'] ?? null,
+            'description'  => $validated['description'] ?? null,
             'owner_id'     => Auth::id(),
             'invite_token' => Str::upper(Str::random(6)),
         ]);
@@ -57,20 +59,32 @@ class GroupController extends Controller
         // N+1 query quando a view acessa $group->owner->name.
         $group->load(['owner', 'members', 'exclusions.participant', 'exclusions.excluded']);
 
-        $myPair = null;
+        $myPair    = null;
+        $drawRound = null;
+
         if ($group->is_drawn) {
+            // Obtém o round mais recente para mostrar o sorteio actual
+            $drawRound = Pairing::where('group_id', $group->id)->max('draw_round') ?? 1;
+
             $myPair = Pairing::where('group_id', $group->id)
                 ->where('santa_id', Auth::id())
+                ->where('draw_round', $drawRound)
                 ->with('giftee')
                 ->first();
         }
 
-        return view('groups.show', compact('group', 'myPair'));
+        return view('groups.show', compact('group', 'myPair', 'drawRound'));
     }
 
     public function join($token)
     {
         $group = Group::where('invite_token', $token)->firstOrFail();
+
+        // SEGURANÇA/UX: Se o sorteio já foi realizado, o link de convite é invalidado.
+        // Novos membros não podem entrar num grupo já sorteado.
+        if ($group->is_drawn) {
+            return view('groups.draw-closed', compact('group'));
+        }
 
         if (! Auth::check()) {
             session(['invite_token' => $token]);
@@ -92,6 +106,12 @@ class GroupController extends Controller
         }
 
         $group = Group::where('invite_token', $token)->firstOrFail();
+
+        // SEGURANÇA: Bloqueia entrada após o sorteio — mesmo via POST directo.
+        if ($group->is_drawn) {
+            return redirect()->route('groups.show', $group)
+                ->with('error', 'Este grupo já foi sorteado. Não é possível entrar agora.');
+        }
 
         if (! $group->members()->where('user_id', Auth::id())->exists()) {
             $group->members()->attach(Auth::id(), ['wishlist' => $request->wishlist]);
@@ -119,21 +139,24 @@ class GroupController extends Controller
                     throw new \RuntimeException('Grupo nao encontrado.');
                 }
 
-                if ($lockedGroup->is_drawn) {
-                    return false;
-                }
-
                 if ($lockedGroup->members()->count() < 3) {
                     throw new \RuntimeException('E preciso ter pelo menos 3 participantes para usar restricoes com seguranca.');
                 }
 
-                $drawService->draw($lockedGroup);
+                // Determina o round anterior para histórico e prevenção de repetição.
+                // Se nunca houve sorteio, lastRound = 0 (sem histórico a consultar).
+                $lastRound = Pairing::where('group_id', $lockedGroup->id)->max('draw_round') ?? 0;
+
+                // Carrega relações necessárias para o DrawService
+                $lockedGroup->load(['members', 'exclusions']);
+
+                $drawService->draw($lockedGroup, $lastRound);
 
                 return true;
             });
 
             if (! $drawExecuted) {
-                return back()->with('error', 'O sorteio ja foi realizado!');
+                return back()->with('error', 'Ocorreu um erro inesperado.');
             }
         } catch (\Exception $e) {
             // SEGURANÇA: Nunca expõe getMessage() diretamente ao usuário —
@@ -148,7 +171,13 @@ class GroupController extends Controller
             return back()->with('error', $safeMessage);
         }
 
-        $pairings = Pairing::where('group_id', $group->id)->with(['santa', 'giftee'])->get();
+        // Notifica todos os santás por email (round mais recente)
+        $latestRound = Pairing::where('group_id', $group->id)->max('draw_round') ?? 1;
+        $pairings    = Pairing::where('group_id', $group->id)
+            ->where('draw_round', $latestRound)
+            ->with(['santa', 'giftee'])
+            ->get();
+
         $mailErrors = 0;
 
         foreach ($pairings as $pair) {
@@ -164,14 +193,21 @@ class GroupController extends Controller
             }
         }
 
+        $latestRound = Pairing::where('group_id', $group->id)->max('draw_round') ?? 1;
+        $isRedraw    = $latestRound > 1;
+
+        $successMsg = $isRedraw
+            ? "Re-sorteio #{$latestRound} realizado! Os e-mails estao sendo enviados em segundo plano."
+            : 'Sorteio realizado! Os e-mails estao sendo enviados em segundo plano.';
+
         if ($mailErrors > 0) {
             return back()->with(
                 'warning',
-                'Sorteio concluido com sucesso, mas tivemos falha ao enfileirar '.$mailErrors.' notificacao(oes).'
+                ($isRedraw ? "Re-sorteio #{$latestRound}" : 'Sorteio') . " concluido com sucesso, mas tivemos falha ao enfileirar {$mailErrors} notificacao(oes)."
             );
         }
 
-        return back()->with('success', 'Sorteio realizado! Os e-mails estao sendo enviados em segundo plano.');
+        return back()->with('success', $successMsg);
     }
 
     public function storeExclusion(StoreExclusionRequest $request, Group $group)
@@ -187,8 +223,8 @@ class GroupController extends Controller
 
         if (! $exists) {
             Exclusion::create([
-                'group_id' => $group->id,
-                'user_id' => $request->user_id,
+                'group_id'    => $group->id,
+                'user_id'     => $request->user_id,
                 'excluded_id' => $request->excluded_id,
             ]);
         }
@@ -319,18 +355,18 @@ class GroupController extends Controller
 
             while (! connection_aborted() && $iterations < 12) {
                 $group->load('members');
-                $html = view('groups.partials.members-list', compact('group'))->render();
+                $html    = view('groups.partials.members-list', compact('group'))->render();
                 $payload = [
-                    'html' => $html,
-                    'count' => $group->members->count(),
+                    'html'    => $html,
+                    'count'   => $group->members->count(),
                     'options' => $group->members->map(fn ($member) => [
-                        'id' => $member->id,
+                        'id'   => $member->id,
                         'name' => $member->name,
                     ])->values(),
                 ];
 
                 echo "event: members\n";
-                echo 'data: '.json_encode($payload, JSON_UNESCAPED_UNICODE)."\n\n";
+                echo 'data: ' . json_encode($payload, JSON_UNESCAPED_UNICODE) . "\n\n";
                 @ob_flush();
                 @flush();
 
@@ -338,9 +374,9 @@ class GroupController extends Controller
                 sleep(5);
             }
         }, 200, [
-            'Content-Type' => 'text/event-stream',
-            'Cache-Control' => 'no-cache, no-store, must-revalidate',
-            'Connection' => 'keep-alive',
+            'Content-Type'      => 'text/event-stream',
+            'Cache-Control'     => 'no-cache, no-store, must-revalidate',
+            'Connection'        => 'keep-alive',
             'X-Accel-Buffering' => 'no',
         ]);
     }

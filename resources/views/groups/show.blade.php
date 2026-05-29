@@ -11,36 +11,36 @@
     </x-slot>
 
     <div class="py-8 pb-24 sm:pb-8"
-        x-data="{ 
+        x-data="{
             activeTab: 'draw',
             participantCount: {{ $group->members->count() }},
             membersOptions: @js($group->members->map(fn($member) => ['id' => $member->id, 'name' => $member->name])->values()),
-            canManageSettings: {{ $group->owner_id === auth()->id() && !$group->is_drawn ? 'true' : 'false' }},
+            canManageSettings: {{ $group->owner_id === auth()->id() ? 'true' : 'false' }},
             showDrawAnimation: false,
             drawMessages: ['Embaralhando nomes...', 'Verificando restrições...', 'Sorteando...', 'Fechando os envelopes...'],
             currentMessage: 'Iniciando...',
             startDraw() {
                 this.showDrawAnimation = true;
                 let step = 0;
-                // Troca a mensagem a cada 600ms para criar suspense
                 const interval = setInterval(() => {
                     this.currentMessage = this.drawMessages[step % this.drawMessages.length];
                     step++;
                 }, 600);
-
-                // Envia o formulário após 3 segundos de animação
                 setTimeout(() => {
                     clearInterval(interval);
-                    this.$refs.drawForm.submit();
-                }, 3000); 
+                    // Submit whichever form triggered the draw
+                    if (this.$refs.redrawForm) {
+                        this.$refs.redrawForm.submit();
+                    } else if (this.$refs.drawForm) {
+                        this.$refs.drawForm.submit();
+                    }
+                }, 3000);
             },
             syncMembersMeta() {
                 const source = this.$refs.membersContainer?.querySelector('[data-members-count]');
                 if (!source) return;
-
                 const count = Number(source.dataset.membersCount ?? this.participantCount);
                 this.participantCount = Number.isNaN(count) ? this.participantCount : count;
-
                 try {
                     this.membersOptions = JSON.parse(source.dataset.membersOptions ?? '[]');
                 } catch (e) {
@@ -49,13 +49,10 @@
             },
             connectMembersStream() {
                 if (@js($group->is_drawn)) return;
-
                 if (this.membersStream) {
                     this.membersStream.close();
                 }
-
                 this.membersStream = new EventSource('{{ route('groups.members.stream', $group) }}');
-
                 this.membersStream.addEventListener('members', (event) => {
                     try {
                         const data = JSON.parse(event.data);
@@ -63,11 +60,8 @@
                             this.$refs.membersContainer.innerHTML = data.html;
                             this.syncMembersMeta();
                         }
-                    } catch (e) {
-                        // fallback silently
-                    }
+                    } catch (e) {}
                 });
-
                 this.membersStream.onerror = () => {
                     if (this.membersStream) this.membersStream.close();
                     this.membersStream = null;
@@ -99,6 +93,7 @@
             connectMembersStream();
         ">
 
+        {{-- Animação de Sorteio --}}
         <div x-show="showDrawAnimation"
             style="display: none;"
             x-transition:enter="transition ease-out duration-300"
@@ -118,8 +113,10 @@
             </h2>
             <p class="text-indigo-200 text-sm">Por favor, aguarde...</p>
         </div>
+
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
 
+            {{-- Tabs --}}
             <div class="flex space-x-1 rounded-xl bg-gray-200/50 dark:bg-gray-700/50 p-1">
                 <button @click="activeTab = 'draw'"
                     :class="activeTab === 'draw' ? 'bg-white dark:bg-gray-800 shadow text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:bg-white/[0.12] hover:text-gray-700'"
@@ -134,7 +131,7 @@
                     <span x-text="participantCount" class="bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 py-0.5 px-2 rounded-full text-xs"></span>
                 </button>
 
-                @if($group->owner_id === auth()->id() && !$group->is_drawn)
+                @if($group->owner_id === auth()->id())
                 <button @click="activeTab = 'settings'"
                     :class="activeTab === 'settings' ? 'bg-white dark:bg-gray-800 shadow text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:bg-white/[0.12] hover:text-gray-700'"
                     class="w-full rounded-lg py-2.5 text-sm font-bold leading-5 ring-white ring-opacity-60 ring-offset-2 ring-offset-indigo-400 focus:outline-none focus:ring-2 transition">
@@ -143,26 +140,54 @@
                 @endif
             </div>
 
+            {{-- TAB: SORTEIO --}}
             <div x-show="activeTab === 'draw'"
                 x-transition:enter="transition ease-out duration-300"
                 x-transition:enter-start="opacity-0 translate-y-2"
                 x-transition:enter-end="opacity-100 translate-y-0"
                 class="space-y-8">
 
+                {{-- Card de Detalhes do Evento --}}
                 <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
-                    <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-                        <div class="flex-1">
-                            <p class="text-gray-500 dark:text-gray-400 text-sm uppercase tracking-wider font-bold mb-1">Descrição</p>
-                            <p class="text-gray-700 dark:text-gray-300">{{ $group->description }}</p>
-                        </div>
-                        <div class="flex gap-8">
+                    <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
+                        <div class="flex-1 space-y-3">
+                            @if($group->description)
                             <div>
-                                <p class="text-gray-500 dark:text-gray-400 text-sm uppercase tracking-wider font-bold">Data</p>
-                                <p class="text-xl font-bold text-gray-800 dark:text-white">{{ $group->event_date->format('d/m/Y') }}</p>
+                                <p class="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider font-bold mb-1">Descrição</p>
+                                <p class="text-gray-700 dark:text-gray-300">{{ $group->description }}</p>
                             </div>
-                            <div>
-                                <p class="text-gray-500 dark:text-gray-400 text-sm uppercase tracking-wider font-bold">Orçamento</p>
-                                <p class="text-xl font-bold text-green-600 dark:text-green-400">R$ {{ number_format($group->budget, 2, ',', '.') }}</p>
+                            @endif
+
+                            <div class="flex flex-wrap gap-6">
+                                <div>
+                                    <p class="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider font-bold">Data</p>
+                                    <p class="text-lg font-bold text-gray-800 dark:text-white">{{ $group->event_date->format('d/m/Y') }}</p>
+                                </div>
+
+                                @if($group->location)
+                                <div>
+                                    <p class="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider font-bold">Local</p>
+                                    <p class="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-1">
+                                        <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                        </svg>
+                                        {{ $group->location }}
+                                    </p>
+                                </div>
+                                @endif
+
+                                @if($group->budget_limit)
+                                <div>
+                                    <p class="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider font-bold">Orçamento</p>
+                                    <p class="text-lg font-bold text-green-600 dark:text-green-400">{{ $group->budget_limit }}</p>
+                                </div>
+                                @elseif($group->budget)
+                                <div>
+                                    <p class="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider font-bold">Orçamento</p>
+                                    <p class="text-lg font-bold text-green-600 dark:text-green-400">R$ {{ number_format($group->budget, 2, ',', '.') }}</p>
+                                </div>
+                                @endif
                             </div>
                         </div>
 
@@ -178,6 +203,7 @@
                     </div>
                 </div>
 
+                {{-- Cartão de revelação / estado de espera --}}
                 <div class="relative min-h-[400px] flex justify-center perspective-1000">
                     @if(!$group->is_drawn)
                     <div class="w-full max-w-md bg-white dark:bg-gray-800 rounded-3xl shadow-xl border-2 border-dashed border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center p-8 text-center">
@@ -201,6 +227,7 @@
                         <div class="relative w-full h-full transition-all duration-700 [transform-style:preserve-3d]"
                             :class="{ '[transform:rotateY(180deg)]': flipped }">
 
+                            {{-- Frente do cartão --}}
                             <div class="absolute inset-0 w-full h-full bg-gradient-to-br from-indigo-600 to-purple-700 rounded-3xl shadow-2xl flex flex-col items-center justify-center text-white cursor-pointer [backface-visibility:hidden]"
                                 @click="
                                         flipped = true;
@@ -220,8 +247,15 @@
 
                                 <h3 class="text-2xl font-black tracking-wider mb-2">SEU PAR É...</h3>
                                 <p class="text-indigo-200 text-sm font-medium animate-pulse">Toque para revelar</p>
+
+                                @if($drawRound && $drawRound > 1)
+                                <span class="absolute top-4 right-4 bg-white/20 text-white text-[10px] font-bold px-2 py-1 rounded-full">
+                                    🔄 Round #{{ $drawRound }}
+                                </span>
+                                @endif
                             </div>
 
+                            {{-- Verso do cartão --}}
                             <div class="absolute inset-0 w-full h-full bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700 flex flex-col items-center justify-center p-6 text-center [transform:rotateY(180deg)] [backface-visibility:hidden]">
 
                                 <div class="absolute top-4 right-4">
@@ -250,6 +284,14 @@
                                         "{{ $giftee->pivot->wishlist ?: 'Sem preferências definidas...' }}"
                                     </p>
                                 </div>
+
+                                @if($drawRound && $drawRound > 1)
+                                <div class="mt-3">
+                                    <span class="inline-flex items-center gap-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-bold px-3 py-1 rounded-full">
+                                        🔄 Sorteio #{{ $drawRound }}
+                                    </span>
+                                </div>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -261,6 +303,7 @@
                 </div>
             </div>
 
+            {{-- TAB: MEMBROS --}}
             <div x-show="activeTab === 'members'"
                 style="display: none;"
                 x-transition:enter="transition ease-out duration-300"
@@ -311,7 +354,8 @@
                 </div>
             </div>
 
-            @if($group->owner_id === auth()->id() && !$group->is_drawn)
+            {{-- TAB: ADMIN --}}
+            @if($group->owner_id === auth()->id())
             <div x-show="activeTab === 'settings'"
                 style="display: none;"
                 x-transition:enter="transition ease-out duration-300"
@@ -327,6 +371,8 @@
                     Configurações do Grupo
                 </h3>
 
+                {{-- Restrições (apenas antes do sorteio) --}}
+                @if(!$group->is_drawn)
                 <div class="mb-8">
                     <h4 class="text-sm font-bold text-gray-500 uppercase mb-3">Restrições (Quem não tira quem)</h4>
                     <form action="{{ route('groups.exclusions.store', $group) }}" method="POST" class="flex flex-col sm:flex-row gap-2 mb-4">
@@ -387,7 +433,9 @@
                     <p class="text-xs text-gray-400 italic">Nenhuma restrição definida.</p>
                     @endif
                 </div>
+                @endif
 
+                {{-- Editar + Apagar --}}
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-gray-200 dark:border-gray-700 pt-6">
                     <a href="{{ route('groups.edit', $group) }}" class="flex items-center justify-center gap-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500 text-gray-700 dark:text-white font-bold py-3 rounded-xl transition">
                         <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -412,6 +460,54 @@
                         </button>
                     </form>
                 </div>
+
+                {{-- Re-sorteio (apenas após o primeiro sorteio) --}}
+                @if($group->is_drawn)
+                @php $latestRound = \App\Models\Pairing::where('group_id', $group->id)->max('draw_round') ?? 1; @endphp
+                <div class="border-t border-orange-200 dark:border-orange-800/40 pt-6 mt-6"
+                     x-data="{ confirmRedraw: false }">
+                    <div class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/40 rounded-xl p-4">
+                        <div class="flex items-start gap-3">
+                            <span class="text-2xl">🔄</span>
+                            <div class="flex-1">
+                                <h4 class="font-bold text-orange-700 dark:text-orange-400 text-sm">Re-sortear o Grupo</h4>
+                                <p class="text-xs text-orange-600 dark:text-orange-300 mt-0.5">
+                                    Gera um novo sorteio evitando que alguém tire a mesma pessoa do sorteio anterior.
+                                    Sorteio actual: <strong>#{{ $latestRound }}</strong>. O próximo será <strong>#{{ $latestRound + 1 }}</strong>.
+                                </p>
+
+                                <div x-show="!confirmRedraw" class="mt-3">
+                                    <button @click="confirmRedraw = true"
+                                        class="inline-flex items-center gap-2 bg-orange-100 dark:bg-orange-900/40 hover:bg-orange-200 dark:hover:bg-orange-900/60 text-orange-700 dark:text-orange-300 font-bold text-xs py-2 px-4 rounded-lg transition">
+                                        🔄 Iniciar Re-sorteio
+                                    </button>
+                                </div>
+
+                                <div x-show="confirmRedraw" style="display: none;" class="mt-3 space-y-2">
+                                    <p class="text-xs font-bold text-orange-700 dark:text-orange-300">⚠️ Confirmação necessária</p>
+                                    <p class="text-xs text-orange-600 dark:text-orange-400">Todos os membros receberão um novo email. Tens a certeza?</p>
+                                    <div class="flex gap-2">
+                                        <form action="{{ route('groups.draw', $group) }}" method="POST"
+                                              x-ref="redrawForm"
+                                              @submit.prevent="startDraw()">
+                                            @csrf
+                                            <button type="submit"
+                                                class="inline-flex items-center gap-1.5 bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs py-2 px-4 rounded-lg transition">
+                                                ✓ Confirmar Re-sorteio
+                                            </button>
+                                        </form>
+                                        <button @click="confirmRedraw = false"
+                                            class="inline-flex items-center gap-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-bold text-xs py-2 px-4 rounded-lg transition">
+                                            Cancelar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                @endif
+
             </div>
             @endif
 

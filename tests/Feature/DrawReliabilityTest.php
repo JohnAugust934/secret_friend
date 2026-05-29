@@ -31,19 +31,20 @@ test('algoritmo resolve um cenário de exclusão circular complexa', function ()
     Exclusion::create(['group_id' => $group->id, 'user_id' => $uC->id, 'excluded_id' => $uA->id]);
 
     $service = new DrawService;
-    $result = $service->draw($group);
+    $result  = $service->draw($group, 0); // lastRound=0 = primeiro sorteio
 
     expect($result)->toBeTrue();
 
     // Validar se a lógica seguiu o único caminho possível
-    $pairA = Pairing::where('group_id', $group->id)->where('santa_id', $uA->id)->first();
-    $pairB = Pairing::where('group_id', $group->id)->where('santa_id', $uB->id)->first();
-    $pairC = Pairing::where('group_id', $group->id)->where('santa_id', $uC->id)->first();
+    $pairA = Pairing::where('group_id', $group->id)->where('santa_id', $uA->id)->where('draw_round', 1)->first();
+    $pairB = Pairing::where('group_id', $group->id)->where('santa_id', $uB->id)->where('draw_round', 1)->first();
+    $pairC = Pairing::where('group_id', $group->id)->where('santa_id', $uC->id)->where('draw_round', 1)->first();
 
     expect($pairA->giftee_id)->toBe($uC->id);
     expect($pairB->giftee_id)->toBe($uA->id);
     expect($pairC->giftee_id)->toBe($uB->id);
 });
+
 
 test('algoritmo identifica corretamente cenário impossível', function () {
     // Cenário Impossível: 3 Pessoas (A, B, C)
@@ -63,7 +64,7 @@ test('algoritmo identifica corretamente cenário impossível', function () {
     $service = new DrawService;
 
     // Deve lançar exceção
-    expect(fn () => $service->draw($group))->toThrow(Exception::class, 'Matematicamente impossível');
+    expect(fn () => $service->draw($group, 0))->toThrow(Exception::class, 'Matematicamente impossível');
 });
 
 test('stress test: algoritmo funciona para grupo médio (20 pessoas)', function () {
@@ -85,15 +86,15 @@ test('stress test: algoritmo funciona para grupo médio (20 pessoas)', function 
         }
     }
 
-    $service = new DrawService;
+    $service   = new DrawService;
     $startTime = microtime(true);
 
-    $service->draw($group);
+    $service->draw($group, 0);
 
-    $endTime = microtime(true);
+    $endTime  = microtime(true);
     $duration = $endTime - $startTime;
 
     // Deve ser rápido (menos de 1 segundo para 20 pessoas)
     expect($duration)->toBeLessThan(1.0);
-    expect(Pairing::where('group_id', $group->id)->count())->toBe(20);
+    expect(Pairing::where('group_id', $group->id)->where('draw_round', 1)->count())->toBe(20);
 });

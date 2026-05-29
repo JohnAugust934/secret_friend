@@ -14,7 +14,9 @@ class Pairing extends Model
         'group_id',
         'santa_id',
         'giftee_id',
+        'draw_round',
     ];
+
 
     public function group()
     {
