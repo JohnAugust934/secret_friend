@@ -50,6 +50,24 @@ class VerifyEmailQueued extends VerifyEmail implements ShouldQueue
     }
 
     /**
+     * @var mixed
+     */
+    protected $user;
+
+    /**
+     * Override toMail to capture the notifiable instance.
+     *
+     * @param  mixed  $notifiable
+     * @return \Illuminate\Notifications\Messages\MailMessage
+     */
+    public function toMail($notifiable)
+    {
+        $this->user = $notifiable;
+
+        return parent::toMail($notifiable);
+    }
+
+    /**
      * Monta o e-mail usando a view customizada do projeto.
      *
      * Mantém o mesmo template visual que já estava configurado no
@@ -61,7 +79,7 @@ class VerifyEmailQueued extends VerifyEmail implements ShouldQueue
             ->subject('Verifique seu E-mail — Amigo Secreto da Galera')
             ->view('emails.verify-email', [
                 'url'  => $url,
-                'name' => $this->notifiable->name,
+                'name' => $this->user->name,
             ]);
     }
 }
