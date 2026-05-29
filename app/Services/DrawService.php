@@ -9,7 +9,24 @@ use Illuminate\Support\Facades\DB;
 class DrawService
 {
     /**
-     * Realiza o sorteio usando algoritmo de Backtracking.
+     * Realiza o sorteio do grupo usando algoritmo de Backtracking.
+     *
+     * @param  Group  $group  O grupo deve ter 'members' e 'exclusions' já carregados
+     *                        (eager load) antes de chamar este método.
+     *
+     * CONTRATO DE CONCORRÊNCIA: Este método DEVE ser invocado dentro de uma
+     * transação de banco de dados com o registro do grupo bloqueado via
+     * lockForUpdate(). Sem esse lock, requisições concorrentes podem disparar
+     * sorteios duplicados para o mesmo grupo.
+     *
+     * Exemplo de uso correto (ver GroupController::draw()):
+     *   DB::transaction(function () use ($group, $drawService) {
+     *       $lockedGroup = Group::whereKey($group->id)->lockForUpdate()->first();
+     *       $drawService->draw($lockedGroup);
+     *   });
+     *
+     * @throws \Exception Se for matematicamente impossível realizar o sorteio
+     *                    com as restrições de exclusão configuradas.
      */
     public function draw(Group $group)
     {
@@ -98,8 +115,10 @@ class DrawService
                 Pairing::insert($pairs);
             }
 
-            // CORREÇÃO: DB::raw('true') força o valor SQL literal, que o Postgres aceita sem erro.
-            $group->update(['is_drawn' => DB::raw('true')]);
+            // SEGURANÇA: forceFill() é intencional — is_drawn foi removido do $fillable
+            // para bloquear mass assignment por usuários, mas aqui é definido pelo serviço
+            // internamente. DB::raw('true') garante compatibilidade com PostgreSQL.
+            $group->forceFill(['is_drawn' => DB::raw('true')])->save();
         });
     }
 }

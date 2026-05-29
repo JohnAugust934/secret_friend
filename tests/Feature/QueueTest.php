@@ -17,7 +17,7 @@ test('e-mails são enfileirados e não enviados imediatamente', function () {
     $member1 = User::factory()->create();
     $member2 = User::factory()->create(); // <--- ADICIONADO: 3º Membro necessário
 
-    $group = Group::create(['name' => 'Queue Test', 'event_date' => now(), 'owner_id' => $owner->id, 'invite_token' => 'Q']);
+    $group = Group::forceCreate(['name' => 'Queue Test', 'event_date' => now(), 'owner_id' => $owner->id, 'invite_token' => 'Q']);
 
     // Anexar 3 pessoas para passar na validação do Controller (Min 3)
     $group->members()->attach([$owner->id, $member1->id, $member2->id]);

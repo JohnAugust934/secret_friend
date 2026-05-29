@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 return [
 
@@ -41,11 +41,12 @@ return [
     ],
 
     'ops' => [
-        'alert_email' => env('OPS_ALERT_EMAIL'),
-        'status_allowed_emails' => env('OPS_STATUS_ALLOWED_EMAILS', ''),
-        'healthcheck_url' => env('OPS_HEALTHCHECK_URL', ''),
-        'backup_retention_days' => (int) env('OPS_BACKUP_RETENTION_DAYS', 14),
-        'mysql_dump_binary' => env('OPS_MYSQL_DUMP_BINARY', ''),
+        'alert_email'          => env('OPS_ALERT_EMAIL'),
+        'status_allowed_emails'=> env('OPS_STATUS_ALLOWED_EMAILS', ''),
+        'healthcheck_url'      => env('OPS_HEALTHCHECK_URL', ''),
+        'healthcheck_secret'   => env('OPS_HEALTHCHECK_SECRET'),   // SEGURANÇA: Token opcional para o endpoint /healthz
+        'backup_retention_days'=> (int) env('OPS_BACKUP_RETENTION_DAYS', 14),
+        'mysql_dump_binary'    => env('OPS_MYSQL_DUMP_BINARY', ''),
         'mysql_restore_binary' => env('OPS_MYSQL_RESTORE_BINARY', ''),
     ],
 

@@ -16,7 +16,7 @@ test('admin pode criar e excluir restrições', function () {
     // Cenário: Grupo com Dono e Membro
     $owner = User::factory()->create();
     $member = User::factory()->create();
-    $group = Group::create(['name' => 'G', 'event_date' => now(), 'owner_id' => $owner->id, 'invite_token' => 'X']);
+    $group = Group::forceCreate(['name' => 'G', 'event_date' => now(), 'owner_id' => $owner->id, 'invite_token' => 'X']);
 
     // Anexar ambos ao grupo
     $group->members()->attach([$owner->id, $member->id]);
@@ -54,7 +54,7 @@ test('o sorteio respeita as restrições (Lógica Matemática)', function () {
     $uB = User::factory()->create(['name' => 'B']);
     $uC = User::factory()->create(['name' => 'C']);
 
-    $group = Group::create(['name' => 'Logic Test', 'event_date' => now(), 'owner_id' => $uA->id, 'invite_token' => 'Y']);
+    $group = Group::forceCreate(['name' => 'Logic Test', 'event_date' => now(), 'owner_id' => $uA->id, 'invite_token' => 'Y']);
     $group->members()->attach([$uA->id, $uB->id, $uC->id]);
 
     // Restrição: A não pode tirar B
@@ -74,7 +74,7 @@ test('o sorteio respeita as restrições (Lógica Matemática)', function () {
 test('falha se o sorteio for impossível', function () {
     $uA = User::factory()->create();
     $uB = User::factory()->create();
-    $group = Group::create(['name' => 'Fail', 'event_date' => now(), 'owner_id' => $uA->id, 'invite_token' => 'Z']);
+    $group = Group::forceCreate(['name' => 'Fail', 'event_date' => now(), 'owner_id' => $uA->id, 'invite_token' => 'Z']);
     $group->members()->attach([$uA->id, $uB->id]);
 
     // Bloqueio total
@@ -93,7 +93,7 @@ test('SEGURANÇA: não permite criar restrição com usuários de fora do grupo'
     $memberInGroup = User::factory()->create();
     $outsider = User::factory()->create(); // Usuário que NÃO está no grupo
 
-    $group = Group::create(['name' => 'Sec Test', 'event_date' => now(), 'owner_id' => $owner->id, 'invite_token' => 'S']);
+    $group = Group::forceCreate(['name' => 'Sec Test', 'event_date' => now(), 'owner_id' => $owner->id, 'invite_token' => 'S']);
     $group->members()->attach([$owner->id, $memberInGroup->id]);
 
     // Tentativa 1: Tentar excluir alguém de fora
@@ -118,7 +118,7 @@ test('SEGURANÇA: não permite criar restrição com usuários de fora do grupo'
 
 test('SEGURANÇA: não permite criar restrição contra si mesmo', function () {
     $owner = User::factory()->create();
-    $group = Group::create(['name' => 'Self Test', 'event_date' => now(), 'owner_id' => $owner->id, 'invite_token' => 'M']);
+    $group = Group::forceCreate(['name' => 'Self Test', 'event_date' => now(), 'owner_id' => $owner->id, 'invite_token' => 'M']);
     $group->members()->attach($owner->id);
 
     // Tentar excluir a si mesmo

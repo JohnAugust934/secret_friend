@@ -14,7 +14,16 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/healthz', function () {
+Route::get('/healthz', function (Request $request) {
+    // SEGURANÇA: Quando OPS_HEALTHCHECK_SECRET está definido, exige o header
+    // X-Health-Token para evitar que scanners externos obtenham informações
+    // de topologia de infraestrutura (status de fila, banco, cache).
+    // Se não configurado, mantém o comportamento anterior (sem quebrar probes).
+    $secret = config('services.ops.healthcheck_secret');
+    if ($secret && $request->header('X-Health-Token') !== $secret) {
+        abort(403);
+    }
+
     $checks = [];
     $status = 'ok';
 
@@ -65,11 +74,12 @@ Route::get('/healthz', function () {
     $checks['queue'] = $queue;
 
     return response()->json([
-        'status' => $status,
-        'checks' => $checks,
+        'status'    => $status,
+        'checks'    => $checks,
         'timestamp' => now()->toIso8601String(),
     ], $status === 'fail' ? 503 : 200);
 })->middleware('throttle:health')->name('healthz');
+
 
 Route::post('/telemetry/frontend', [TelemetryController::class, 'store'])
     ->middleware('throttle:health')

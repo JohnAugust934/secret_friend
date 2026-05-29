@@ -8,7 +8,7 @@ test('o dono do grupo pode remover um participante', function () {
     $owner = User::factory()->create();
     $member = User::factory()->create();
 
-    $group = Group::create([
+    $group = Group::forceCreate([
         'name' => 'Festa',
         'event_date' => '2025-12-25',
         'owner_id' => $owner->id,
@@ -37,7 +37,7 @@ test('um membro comum NÃO pode remover outros participantes', function () {
     $member1 = User::factory()->create();
     $member2 = User::factory()->create();
 
-    $group = Group::create(['name' => 'Teste', 'event_date' => '2025-12-25', 'owner_id' => $owner->id, 'invite_token' => '123']);
+    $group = Group::forceCreate(['name' => 'Teste', 'event_date' => '2025-12-25', 'owner_id' => $owner->id, 'invite_token' => '123']);
     $group->members()->attach([$owner->id, $member1->id, $member2->id]);
 
     // Membro 1 tenta remover Membro 2
@@ -55,7 +55,7 @@ test('não é possível remover membros após o sorteio ser realizado', function
     $owner = User::factory()->create();
     $member = User::factory()->create();
 
-    $group = Group::create([
+    $group = Group::forceCreate([
         'name' => 'Já Sorteado',
         'event_date' => '2025-12-25',
         'owner_id' => $owner->id,
@@ -77,7 +77,7 @@ test('não é possível remover membros após o sorteio ser realizado', function
 
 test('o dono não pode remover a si mesmo pela função de remover membros', function () {
     $owner = User::factory()->create();
-    $group = Group::create(['name' => 'Teste', 'event_date' => '2025-12-25', 'owner_id' => $owner->id, 'invite_token' => 'XXX']);
+    $group = Group::forceCreate(['name' => 'Teste', 'event_date' => '2025-12-25', 'owner_id' => $owner->id, 'invite_token' => 'XXX']);
     $group->members()->attach($owner->id);
 
     $response = $this->actingAs($owner)

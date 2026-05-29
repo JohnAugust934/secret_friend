@@ -8,7 +8,7 @@ it('blocks non-member from viewing a group by id', function () {
     $member = User::factory()->create();
     $outsider = User::factory()->create();
 
-    $group = Group::create([
+    $group = Group::forceCreate([
         'name' => 'Private Group',
         'event_date' => now()->addWeek(),
         'owner_id' => $owner->id,
@@ -26,7 +26,7 @@ it('blocks non-member from updating wishlist', function () {
     $owner = User::factory()->create();
     $outsider = User::factory()->create();
 
-    $group = Group::create([
+    $group = Group::forceCreate([
         'name' => 'Wishlist Locked',
         'event_date' => now()->addWeek(),
         'owner_id' => $owner->id,

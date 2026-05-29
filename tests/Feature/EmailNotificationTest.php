@@ -20,7 +20,7 @@ test('o sistema envia e-mails para os participantes após o sorteio', function (
     $user2 = User::factory()->create();
     $user3 = User::factory()->create();
 
-    $group = Group::create([
+    $group = Group::forceCreate([
         'name' => 'Grupo de Teste Email',
         'event_date' => '2025-12-25',
         'budget' => 100,
@@ -51,7 +51,7 @@ test('o e-mail contém o nome do amigo secreto sorteado', function () {
     // Para testar o conteúdo, vamos renderizar o Mailable manualmente
     $santa = User::factory()->create(['name' => 'Papai Noel']);
     $giftee = User::factory()->create(['name' => 'Rodolfo Rena']);
-    $group = Group::create([
+    $group = Group::forceCreate([
         'name' => 'Natal Mágico',
         'event_date' => '2025-12-25',
         'owner_id' => $santa->id,

@@ -11,7 +11,7 @@ beforeEach(function () {
 it('shows public invite landing page for guests', function () {
     $owner = User::factory()->create();
 
-    $group = Group::create([
+    $group = Group::forceCreate([
         'name' => 'Convite Publico',
         'event_date' => now()->addWeek(),
         'budget' => 50,
@@ -33,7 +33,7 @@ it('redirects to invite flow after login when invite token is provided', functio
         'password' => bcrypt('password123'),
     ]);
 
-    $group = Group::create([
+    $group = Group::forceCreate([
         'name' => 'Grupo Login Convite',
         'event_date' => now()->addWeek(),
         'budget' => 80,
@@ -53,7 +53,7 @@ it('redirects to invite flow after login when invite token is provided', functio
 it('redirects to invite flow after registration when invite token is provided', function () {
     $owner = User::factory()->create();
 
-    $group = Group::create([
+    $group = Group::forceCreate([
         'name' => 'Grupo Cadastro Convite',
         'event_date' => now()->addWeek(),
         'budget' => 100,

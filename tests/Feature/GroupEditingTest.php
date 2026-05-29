@@ -12,7 +12,7 @@ beforeEach(function () {
 test('o dono do grupo pode ver a tela de edição', function () {
     $owner = User::factory()->create();
     // Cria grupo com data futura válida (10 dias a partir de hoje)
-    $group = Group::create([
+    $group = Group::forceCreate([
         'name' => 'Original',
         'event_date' => now()->addDays(10),
         'owner_id' => $owner->id,
@@ -27,7 +27,7 @@ test('o dono do grupo pode ver a tela de edição', function () {
 
 test('o dono do grupo pode atualizar os dados', function () {
     $owner = User::factory()->create();
-    $group = Group::create([
+    $group = Group::forceCreate([
         'name' => 'Original',
         'event_date' => now()->addDays(5),
         'owner_id' => $owner->id,
@@ -57,7 +57,7 @@ test('o dono do grupo pode atualizar os dados', function () {
 test('membros comuns NÃO podem acessar a tela de edição', function () {
     $owner = User::factory()->create();
     $member = User::factory()->create();
-    $group = Group::create([
+    $group = Group::forceCreate([
         'name' => 'Original',
         'event_date' => now()->addDays(10),
         'owner_id' => $owner->id,
@@ -72,7 +72,7 @@ test('membros comuns NÃO podem acessar a tela de edição', function () {
 test('membros comuns NÃO podem atualizar o grupo', function () {
     $owner = User::factory()->create();
     $member = User::factory()->create();
-    $group = Group::create([
+    $group = Group::forceCreate([
         'name' => 'Original',
         'event_date' => now()->addDays(10),
         'owner_id' => $owner->id,

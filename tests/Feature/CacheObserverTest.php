@@ -11,7 +11,7 @@ beforeEach(function () {
 
 test('o observer limpa o cache automaticamente quando um membro entra', function () {
     $owner = User::factory()->create();
-    $group = Group::create([
+    $group = Group::forceCreate([
         'name' => 'Teste Cache',
         'event_date' => now(),
         'owner_id' => $owner->id,
@@ -44,7 +44,7 @@ test('o observer limpa o cache automaticamente quando um membro entra', function
 test('o observer limpa o cache quando um membro é removido', function () {
     $owner = User::factory()->create();
     $member = User::factory()->create(['name' => 'Tchau Membro']);
-    $group = Group::create(['name' => 'Teste Remove', 'event_date' => now(), 'owner_id' => $owner->id, 'invite_token' => 'BYE']);
+    $group = Group::forceCreate(['name' => 'Teste Remove', 'event_date' => now(), 'owner_id' => $owner->id, 'invite_token' => 'BYE']);
 
     $group->members()->attach([$owner->id, $member->id]);
 

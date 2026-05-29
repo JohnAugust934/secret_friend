@@ -9,14 +9,17 @@ class StoreExclusionRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
-     * Aqui verificamos se quem está tentando criar a regra é o dono do grupo.
+     * SEGURANÇA: Delega à GroupPolicy::manageExclusions() para manter a lógica
+     * de autorização centralizada — evita duplicação e inconsistência futura.
      */
     public function authorize(): bool
     {
         $group = $this->route('group');
 
-        // Apenas o dono do grupo pode adicionar exclusões
-        return $group && $group->owner_id === $this->user()->id;
+        // Usa a Policy central em vez de verificar owner_id diretamente,
+        // garantindo que mudanças na regra de "quem pode gerenciar" sejam
+        // refletidas automaticamente aqui.
+        return $group && $this->user()->can('manageExclusions', $group);
     }
 
     /**

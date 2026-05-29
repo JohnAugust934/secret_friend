@@ -21,11 +21,11 @@ class StoreGroupRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => 'required|string|max:255',
-            'event_date' => 'required|date|after:today',
-            'budget' => 'nullable|numeric|min:0',
-            'description' => 'nullable|string',
-            'wishlist' => 'nullable|string|max:1000',
+            'name'        => 'required|string|max:255',
+            'event_date'  => 'required|date|after:today',
+            'budget'      => 'nullable|numeric|min:0|max:99999.99', // SEGURANÇA: Limite máximo para evitar overflow de coluna
+            'description' => 'nullable|string|max:2000',            // SEGURANÇA: Limite para prevenir payloads abusivos
+            'wishlist'    => 'nullable|string|max:1000',
         ];
     }
 

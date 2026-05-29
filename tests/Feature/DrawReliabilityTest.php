@@ -22,7 +22,7 @@ test('algoritmo resolve um cenário de exclusão circular complexa', function ()
     $uB = User::factory()->create(['name' => 'B']);
     $uC = User::factory()->create(['name' => 'C']);
 
-    $group = Group::create(['name' => 'Hard Logic', 'event_date' => now(), 'owner_id' => $uA->id, 'invite_token' => 'HARD']);
+    $group = Group::forceCreate(['name' => 'Hard Logic', 'event_date' => now(), 'owner_id' => $uA->id, 'invite_token' => 'HARD']);
     $group->members()->attach([$uA->id, $uB->id, $uC->id]);
 
     // Criar as restrições circulares
@@ -54,7 +54,7 @@ test('algoritmo identifica corretamente cenário impossível', function () {
     $uB = User::factory()->create();
     $uC = User::factory()->create();
 
-    $group = Group::create(['name' => 'Impossible', 'event_date' => now(), 'owner_id' => $uA->id, 'invite_token' => 'IMP']);
+    $group = Group::forceCreate(['name' => 'Impossible', 'event_date' => now(), 'owner_id' => $uA->id, 'invite_token' => 'IMP']);
     $group->members()->attach([$uA->id, $uB->id, $uC->id]);
 
     Exclusion::create(['group_id' => $group->id, 'user_id' => $uA->id, 'excluded_id' => $uB->id]);
@@ -68,7 +68,7 @@ test('algoritmo identifica corretamente cenário impossível', function () {
 
 test('stress test: algoritmo funciona para grupo médio (20 pessoas)', function () {
     $owner = User::factory()->create();
-    $group = Group::create(['name' => 'Stress Test', 'event_date' => now(), 'owner_id' => $owner->id, 'invite_token' => 'STR']);
+    $group = Group::forceCreate(['name' => 'Stress Test', 'event_date' => now(), 'owner_id' => $owner->id, 'invite_token' => 'STR']);
 
     // Criar 20 membros
     $members = User::factory(20)->create();

@@ -64,5 +64,11 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('health', function (Request $request) {
             return Limit::perMinute(30)->by($request->ip());
         });
+
+        // SEGURANÇA: Throttle no confirm-password para impedir brute-force
+        // da senha atual em cenários de sessão comprometida.
+        RateLimiter::for('confirm-password', function (Request $request) {
+            return Limit::perMinute(5)->by(($request->user()?->id ?? 'guest').'|'.$request->ip());
+        });
     }
 }

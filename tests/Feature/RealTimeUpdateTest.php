@@ -12,7 +12,7 @@ test('a rota parcial de membros retorna a lista correta de usuários', function 
     $owner = User::factory()->create();
     $user2 = User::factory()->create(['name' => 'Novo Membro']);
 
-    $group = Group::create([
+    $group = Group::forceCreate([
         'name' => 'Grupo Auto Update',
         'event_date' => '2025-12-25',
         'owner_id' => $owner->id,
@@ -41,7 +41,7 @@ test('usuários fora do grupo não podem acessar a lista parcial', function () {
     $owner = User::factory()->create();
     $outsider = User::factory()->create();
 
-    $group = Group::create([
+    $group = Group::forceCreate([
         'name' => 'Grupo Privado',
         'event_date' => '2025-12-25',
         'owner_id' => $owner->id,

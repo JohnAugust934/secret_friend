@@ -11,7 +11,12 @@ class DashboardController extends Controller
         /** @var \App\Models\User $user */
         $user = Auth::user();
 
-        $groups = $user->groups()->orderByDesc('created_at')->get();
+        // PERFORMANCE: Eager load dos relacionamentos acessados na view
+        // para evitar N+1 queries ao iterar sobre os grupos do usuário.
+        $groups = $user->groups()
+            ->with(['owner', 'members'])
+            ->orderByDesc('created_at')
+            ->get();
 
         return view('dashboard', compact('groups'));
     }

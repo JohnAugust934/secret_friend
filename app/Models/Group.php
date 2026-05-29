@@ -9,14 +9,17 @@ class Group extends Model
 {
     use HasFactory;
 
+    /**
+     * Campos mass-assignable.
+     * SEGURANÇA: owner_id, invite_token e is_drawn são INTENCIONALMENTE excluídos —
+     * são sempre definidos programaticamente no controller/service e jamais
+     * devem ser controláveis pelo usuário via requisição HTTP.
+     */
     protected $fillable = [
         'name',
         'description',
         'event_date',
         'budget',
-        'owner_id',
-        'invite_token',
-        'is_drawn',
     ];
 
     // ISTO É ESSENCIAL PARA O POSTGRES

@@ -32,12 +32,15 @@ class GroupController extends Controller
     {
         $validated = $request->validated();
 
-        $group = Group::create([
-            'name' => $validated['name'],
-            'event_date' => $validated['event_date'],
-            'budget' => $validated['budget'],
-            'description' => $validated['description'],
-            'owner_id' => Auth::id(),
+        // SEGURANÇA: forceCreate() é intencional aqui — owner_id e invite_token são
+        // definidos PROGRAMATICAMENTE (nunca pelo usuário), por isso não pertencem
+        // ao $fillable. forceCreate() é o padrão do Laravel para esse cenário.
+        $group = Group::forceCreate([
+            'name'         => $validated['name'],
+            'event_date'   => $validated['event_date'],
+            'budget'       => $validated['budget'],
+            'description'  => $validated['description'],
+            'owner_id'     => Auth::id(),
             'invite_token' => Str::upper(Str::random(6)),
         ]);
 
@@ -50,7 +53,9 @@ class GroupController extends Controller
     {
         Gate::authorize('view', $group);
 
-        $group->load(['members', 'exclusions.participant', 'exclusions.excluded']);
+        // SEGURANÇA/PERFORMANCE: 'owner' adicionado ao eager load para evitar
+        // N+1 query quando a view acessa $group->owner->name.
+        $group->load(['owner', 'members', 'exclusions.participant', 'exclusions.excluded']);
 
         $myPair = null;
         if ($group->is_drawn) {
@@ -90,6 +95,9 @@ class GroupController extends Controller
 
         if (! $group->members()->where('user_id', Auth::id())->exists()) {
             $group->members()->attach(Auth::id(), ['wishlist' => $request->wishlist]);
+            // SEGURANÇA/CACHE: Invalida o cache de HTML de membros imediatamente
+            // após um novo membro entrar, evitando exibir lista desatualizada.
+            Cache::forget("group_members_html_{$group->id}");
         }
 
         $request->session()->forget('invite_token');
@@ -128,7 +136,16 @@ class GroupController extends Controller
                 return back()->with('error', 'O sorteio ja foi realizado!');
             }
         } catch (\Exception $e) {
-            return back()->with('error', $e->getMessage());
+            // SEGURANÇA: Nunca expõe getMessage() diretamente ao usuário —
+            // pode conter nomes de tabelas, paths internos ou stack traces.
+            // Apenas RuntimeException de domínio (negócio) exibe mensagem ao usuário.
+            report($e);
+
+            $safeMessage = $e instanceof \RuntimeException
+                ? $e->getMessage()
+                : 'Ocorreu um erro ao realizar o sorteio. Por favor, tente novamente.';
+
+            return back()->with('error', $safeMessage);
         }
 
         $pairings = Pairing::where('group_id', $group->id)->with(['santa', 'giftee'])->get();
@@ -263,6 +280,10 @@ class GroupController extends Controller
 
         if ($pivot) {
             $pivot->delete();
+            // SEGURANÇA/CACHE: Invalida os caches de membros imediatamente após
+            // a remoção, evitando exibição de lista desatualizada por até 5s.
+            Cache::forget("group_members_html_{$group->id}");
+            Cache::forget("group_member_check_{$group->id}_{$user->id}");
         }
 
         return back()->with('success', "{$user->name} foi removido do grupo.");
