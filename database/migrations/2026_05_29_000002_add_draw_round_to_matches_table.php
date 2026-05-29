@@ -24,8 +24,12 @@ return new class extends Migration
 
             // Remove as constraints únicas antigas (sem round)
             // O nome segue a convenção do Laravel: {tabela}_{coluna(s)}_unique
+            $table->dropForeign(['santa_id']);
+            $table->dropForeign(['giftee_id']);
             $table->dropUnique('matches_group_id_santa_id_unique');
             $table->dropUnique('matches_group_id_giftee_id_unique');
+            $table->foreign('santa_id')->references('id')->on('users')->onDelete('cascade');
+            $table->foreign('giftee_id')->references('id')->on('users')->onDelete('cascade');
 
             // Cria novas constraints únicas que incluem o round
             // → Um santa só pode tirar uma pessoa POR ROUND
@@ -46,9 +50,13 @@ return new class extends Migration
 
             $table->dropColumn('draw_round');
 
+            $table->dropForeign(['santa_id']);
+            $table->dropForeign(['giftee_id']);
             // Restaura as constraints originais
             $table->unique(['group_id', 'santa_id']);
             $table->unique(['group_id', 'giftee_id']);
+            $table->foreign('santa_id')->references('id')->on('users')->onDelete('cascade');
+            $table->foreign('giftee_id')->references('id')->on('users')->onDelete('cascade');
         });
     }
 };
