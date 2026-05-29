@@ -13,7 +13,13 @@ return new class extends Migration
     {
         Schema::table('matches', function (Blueprint $table) {
             $table->dropForeign(['giftee_id']);
+        });
+
+        Schema::table('matches', function (Blueprint $table) {
             $table->dropUnique('matches_group_giftee_round_unique');
+        });
+
+        Schema::table('matches', function (Blueprint $table) {
             $table->text('giftee_id')->change();
         });
     }
@@ -25,6 +31,9 @@ return new class extends Migration
     {
         Schema::table('matches', function (Blueprint $table) {
             $table->foreignId('giftee_id')->change()->constrained('users')->onDelete('cascade');
+        });
+
+        Schema::table('matches', function (Blueprint $table) {
             $table->unique(['group_id', 'giftee_id', 'draw_round'], 'matches_group_giftee_round_unique');
         });
     }

@@ -26,8 +26,14 @@ return new class extends Migration
             // O nome segue a convenção do Laravel: {tabela}_{coluna(s)}_unique
             $table->dropForeign(['santa_id']);
             $table->dropForeign(['giftee_id']);
+        });
+
+        Schema::table('matches', function (Blueprint $table) {
             $table->dropUnique('matches_group_id_santa_id_unique');
             $table->dropUnique('matches_group_id_giftee_id_unique');
+        });
+
+        Schema::table('matches', function (Blueprint $table) {
             $table->foreign('santa_id')->references('id')->on('users')->onDelete('cascade');
             $table->foreign('giftee_id')->references('id')->on('users')->onDelete('cascade');
 
@@ -52,9 +58,15 @@ return new class extends Migration
 
             $table->dropForeign(['santa_id']);
             $table->dropForeign(['giftee_id']);
+        });
+
+        Schema::table('matches', function (Blueprint $table) {
             // Restaura as constraints originais
             $table->unique(['group_id', 'santa_id']);
             $table->unique(['group_id', 'giftee_id']);
+        });
+
+        Schema::table('matches', function (Blueprint $table) {
             $table->foreign('santa_id')->references('id')->on('users')->onDelete('cascade');
             $table->foreign('giftee_id')->references('id')->on('users')->onDelete('cascade');
         });
