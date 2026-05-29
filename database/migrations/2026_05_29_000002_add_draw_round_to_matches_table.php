@@ -22,24 +22,21 @@ return new class extends Migration
             // Adiciona o round do sorteio. Sorteio inicial = 1.
             $table->unsignedSmallInteger('draw_round')->default(1)->after('group_id');
 
-            // Remove as constraints únicas antigas (sem round)
-            // O nome segue a convenção do Laravel: {tabela}_{coluna(s)}_unique
-            $table->dropForeign(['santa_id']);
-            $table->dropForeign(['giftee_id']);
+            // Cria índices normais para as chaves estrangeiras primeiro
+            // Isto impede que o MySQL bloqueie o drop das constraints únicas
+            $table->index('group_id');
+            $table->index('santa_id');
+            $table->index('giftee_id');
         });
 
         Schema::table('matches', function (Blueprint $table) {
+            // Agora o MySQL permite apagar os índices únicos porque as FKs têm os seus próprios índices
             $table->dropUnique('matches_group_id_santa_id_unique');
             $table->dropUnique('matches_group_id_giftee_id_unique');
         });
 
         Schema::table('matches', function (Blueprint $table) {
-            $table->foreign('santa_id')->references('id')->on('users')->onDelete('cascade');
-            $table->foreign('giftee_id')->references('id')->on('users')->onDelete('cascade');
-
             // Cria novas constraints únicas que incluem o round
-            // → Um santa só pode tirar uma pessoa POR ROUND
-            // → Uma pessoa só pode ser tirada por um santa POR ROUND
             $table->unique(['group_id', 'santa_id', 'draw_round'], 'matches_group_santa_round_unique');
             $table->unique(['group_id', 'giftee_id', 'draw_round'], 'matches_group_giftee_round_unique');
         });
@@ -55,9 +52,6 @@ return new class extends Migration
             $table->dropUnique('matches_group_giftee_round_unique');
 
             $table->dropColumn('draw_round');
-
-            $table->dropForeign(['santa_id']);
-            $table->dropForeign(['giftee_id']);
         });
 
         Schema::table('matches', function (Blueprint $table) {
@@ -67,8 +61,10 @@ return new class extends Migration
         });
 
         Schema::table('matches', function (Blueprint $table) {
-            $table->foreign('santa_id')->references('id')->on('users')->onDelete('cascade');
-            $table->foreign('giftee_id')->references('id')->on('users')->onDelete('cascade');
+            // Removemos os índices adicionais agora que as constraints originais voltaram
+            $table->dropIndex(['group_id']);
+            $table->dropIndex(['santa_id']);
+            $table->dropIndex(['giftee_id']);
         });
     }
 };
