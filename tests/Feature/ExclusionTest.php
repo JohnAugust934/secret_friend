@@ -68,7 +68,7 @@ test('o sorteio respeita as restrições (Lógica Matemática)', function () {
     $pairA = Pairing::where('group_id', $group->id)->where('santa_id', $uA->id)->first();
 
     // A afirmação deve ser verdadeira: A tirou C
-    expect($pairA->giftee_id)->toBe($uC->id);
+    expect((int) $pairA->giftee_id)->toBe($uC->id);
 });
 
 test('falha se o sorteio for impossível', function () {

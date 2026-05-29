@@ -17,6 +17,12 @@ class Pairing extends Model
         'draw_round',
     ];
 
+    protected function casts(): array
+    {
+        return [
+            'giftee_id' => 'encrypted',
+        ];
+    }
 
     public function group()
     {

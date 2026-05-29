@@ -123,11 +123,14 @@ test('re-sorteio via HTTP pelo owner incrementa o round e retorna sucesso', func
     $group->members()->attach([$owner->id, $uA->id, $uB->id]);
 
     // Simula round 1 já existente no banco
-    Pairing::insert([
-        ['group_id' => $group->id, 'santa_id' => $owner->id, 'giftee_id' => $uA->id, 'draw_round' => 1, 'created_at' => now(), 'updated_at' => now()],
-        ['group_id' => $group->id, 'santa_id' => $uA->id,   'giftee_id' => $uB->id, 'draw_round' => 1, 'created_at' => now(), 'updated_at' => now()],
-        ['group_id' => $group->id, 'santa_id' => $uB->id,   'giftee_id' => $owner->id, 'draw_round' => 1, 'created_at' => now(), 'updated_at' => now()],
-    ]);
+    $pairs = [
+        ['group_id' => $group->id, 'santa_id' => $owner->id, 'giftee_id' => $uA->id, 'draw_round' => 1],
+        ['group_id' => $group->id, 'santa_id' => $uA->id,   'giftee_id' => $uB->id, 'draw_round' => 1],
+        ['group_id' => $group->id, 'santa_id' => $uB->id,   'giftee_id' => $owner->id, 'draw_round' => 1],
+    ];
+    foreach ($pairs as $p) {
+        Pairing::create($p);
+    }
 
     $response = $this->actingAs($owner)
         ->post(route('groups.draw', $group));
@@ -162,11 +165,14 @@ test('re-sorteio lança exceção quando histórico + exclusões tornam sorteio 
     $group->members()->attach([$uA->id, $uB->id, $uC->id]);
 
     // Round 1: A→B, B→C, C→A (histórico)
-    Pairing::insert([
-        ['group_id' => $group->id, 'santa_id' => $uA->id, 'giftee_id' => $uB->id, 'draw_round' => 1, 'created_at' => now(), 'updated_at' => now()],
-        ['group_id' => $group->id, 'santa_id' => $uB->id, 'giftee_id' => $uC->id, 'draw_round' => 1, 'created_at' => now(), 'updated_at' => now()],
-        ['group_id' => $group->id, 'santa_id' => $uC->id, 'giftee_id' => $uA->id, 'draw_round' => 1, 'created_at' => now(), 'updated_at' => now()],
-    ]);
+    $pairs2 = [
+        ['group_id' => $group->id, 'santa_id' => $uA->id, 'giftee_id' => $uB->id, 'draw_round' => 1],
+        ['group_id' => $group->id, 'santa_id' => $uB->id, 'giftee_id' => $uC->id, 'draw_round' => 1],
+        ['group_id' => $group->id, 'santa_id' => $uC->id, 'giftee_id' => $uA->id, 'draw_round' => 1],
+    ];
+    foreach ($pairs2 as $p) {
+        Pairing::create($p);
+    }
 
     // Exclusão permanente: A não pode tirar C
     Exclusion::create(['group_id' => $group->id, 'user_id' => $uA->id, 'excluded_id' => $uC->id]);

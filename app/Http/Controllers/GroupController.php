@@ -152,6 +152,15 @@ class GroupController extends Controller
 
                 $drawService->draw($lockedGroup, $lastRound);
 
+                DB::table('draw_audits')->insert([
+                    'group_id'   => $lockedGroup->id,
+                    'user_id'    => Auth::id(),
+                    'ip_address' => request()->ip(),
+                    'draw_round' => $lastRound + 1,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
                 return true;
             });
 

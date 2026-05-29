@@ -149,12 +149,6 @@ class DrawService
         return false;
     }
 
-    /**
-     * Persiste os pares do sorteio no banco.
-     *
-     * IMPORTANTE: Apenas os pares do round actual são apagados antes da inserção.
-     * Rounds anteriores são preservados como histórico.
-     */
     private function savePairingsBatch(Group $group, array $pairs, int $currentRound): void
     {
         DB::transaction(function () use ($group, $pairs, $currentRound) {
@@ -164,8 +158,8 @@ class DrawService
                 ->where('draw_round', $currentRound)
                 ->delete();
 
-            if (count($pairs) > 0) {
-                Pairing::insert($pairs);
+            foreach ($pairs as $pair) {
+                Pairing::create($pair);
             }
 
             // SEGURANÇA: forceFill() é intencional — is_drawn foi removido do $fillable
