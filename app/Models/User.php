@@ -48,13 +48,20 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
-     * Sobrescreve o comportamento padrão (síncrono) do Laravel.
-     * Enfileira o envio na fila 'emails' via VerifyEmailQueued,
-     * garantindo que falhas de SMTP nunca causem erros 500 no cadastro.
+     * Envia o e-mail de verificação de forma SÍNCRONA (imediata).
+     *
+     * Usamos notifyNow() em vez de notify() para contornar a limitação de
+     * hospedagem compartilhada (Hostinger), onde não há worker de fila
+     * persistente. notifyNow() ignora o ShouldQueue e entrega via SMTP
+     * no momento do cadastro/reenvio.
+     *
+     * O try/catch no RegisteredUserController e no
+     * EmailVerificationNotificationController garante que uma falha de SMTP
+     * nunca resulte em erro 500 para o usuário.
      */
     public function sendEmailVerificationNotification(): void
     {
-        $this->notify(new VerifyEmailQueued);
+        $this->notifyNow(new VerifyEmailQueued);
     }
 
     public function groups()

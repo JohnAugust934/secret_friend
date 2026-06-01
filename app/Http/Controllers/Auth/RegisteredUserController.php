@@ -46,16 +46,15 @@ class RegisteredUserController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
-        // Dispara o evento Registered, que aciona o envio do e-mail de
-        // verificação via fila (VerifyEmailQueued). O try/catch garante
-        // que uma falha inesperada de infraestrutura (ex.: banco cheio,
-        // impossibilidade de enfileirar) nunca resulte em um erro 500
-        // para o usuário — ele é redirecionado normalmente e pode
-        // solicitar o reenvio na tela de verificação de e-mail.
+        // Dispara o evento Registered, que aciona o envio SÍNCRONO do e-mail de
+        // verificação via notifyNow() (VerifyEmailQueued). O try/catch garante
+        // que uma falha temporária de SMTP nunca resulte em um erro 500 para
+        // o usuário — ele é redirecionado normalmente e pode solicitar o
+        // reenvio na tela de verificação de e-mail.
         try {
             event(new Registered($user));
         } catch (\Throwable $e) {
-            Log::error('Falha ao enfileirar e-mail de verificação após cadastro.', [
+            Log::error('Falha ao enviar e-mail de verificação após cadastro.', [
                 'user_id' => $user->id,
                 'email'   => $user->email,
                 'error'   => $e->getMessage(),

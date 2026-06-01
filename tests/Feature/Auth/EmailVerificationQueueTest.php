@@ -1,20 +1,19 @@
 <?php
 
 /**
- * Testes de Feature — Fila de E-mail de Verificação
+ * Testes de Feature — Notificação de Verificação de E-mail
  *
- * Testa especificamente os contratos de enfileiramento da VerifyEmailQueued:
+ * Testa os contratos da VerifyEmailQueued:
  * - Implementação correta das interfaces (ShouldQueue, etc.)
  * - Configuração da fila correta ('emails')
  * - Parâmetros de resiliência (tries, timeout, backoff)
- * - Comportamento com Queue::fake() para garantir que os jobs chegam à fila
+ * - Envio imediato via notifyNow() (sem fila, para hospedagem compartilhada)
  */
 
 use App\Models\User;
 use App\Notifications\VerifyEmailQueued;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\Queue;
 
 // ---------------------------------------------------------------------------
 // Contratos estruturais da VerifyEmailQueued
@@ -47,11 +46,15 @@ test('VerifyEmailQueued tem configurações de resiliência corretas', function 
 });
 
 // ---------------------------------------------------------------------------
-// Comportamento de enfileiramento via Queue::fake()
+// Comportamento de envio imediato (notifyNow — sem fila)
+//
+// Usamos notifyNow() porque a Hostinger (hospedagem compartilhada) não
+// suporta workers de fila persistentes. Notification::fake() intercepta
+// tanto notify() quanto notifyNow(), então os testes funcionam nos dois modos.
 // ---------------------------------------------------------------------------
 
-test('o cadastro de novo usuário coloca a VerifyEmailQueued na fila database', function () {
-    Queue::fake();
+test('o cadastro de novo usuário envia a VerifyEmailQueued imediatamente', function () {
+    Notification::fake();
 
     $this->post('/register', [
         'name'                  => 'Queue Test User',
@@ -60,28 +63,21 @@ test('o cadastro de novo usuário coloca a VerifyEmailQueued na fila database', 
         'password_confirmation' => 'password',
     ]);
 
-    // Com Queue::fake(), qualquer job/notificação enfileirada é interceptado.
-    // A asserção abaixo confirma que o job chegou à fila sem ser executado.
-    Queue::assertPushed(
-        \Illuminate\Notifications\SendQueuedNotifications::class,
-        function ($job) {
-            return $job->notification instanceof VerifyEmailQueued;
-        }
-    );
+    $user = User::where('email', 'queuetest@example.com')->firstOrFail();
+
+    // Notification::fake() captura notifyNow() e notify() igualmente.
+    // Confirma que a notificação correta foi enviada ao usuário recém-cadastrado.
+    Notification::assertSentTo($user, VerifyEmailQueued::class);
 });
 
-test('ao solicitar reenvio de verificação, a notificação vai para a fila emails', function () {
+test('ao solicitar reenvio de verificação, a notificação é enviada ao usuário', function () {
     Notification::fake();
 
     $user = User::factory()->unverified()->create();
 
     $this->actingAs($user)->post(route('verification.send'));
 
-    Notification::assertSentTo(
-        $user,
-        VerifyEmailQueued::class,
-        fn ($notification) => $notification->queue === 'emails'
-    );
+    Notification::assertSentTo($user, VerifyEmailQueued::class);
 });
 
 test('apenas um e-mail de verificação é enviado por registro', function () {

@@ -4,11 +4,11 @@
  * Testes de Feature — Fluxo de E-mail de Verificação e Recuperação de Senha
  *
  * Cobre:
- * - Notificação de verificação é enfileirada (não enviada de forma síncrona) ao registrar.
- * - Falha ao enfileirar não retorna erro 500 para o usuário.
+ * - Notificação de verificação é enviada imediatamente (notifyNow) ao registrar.
+ * - Falha de SMTP não retorna erro 500 para o usuário.
  * - Reenvio do link de verificação funciona corretamente.
  * - Usuário já verificado não recebe novo e-mail ao solicitar reenvio.
- * - Recuperação de senha enfileira a notificação corretamente.
+ * - Recuperação de senha envia a notificação corretamente.
  */
 
 use App\Models\User;
@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\Notification;
 // Registro — Verificação de E-mail
 // ---------------------------------------------------------------------------
 
-test('ao registrar, a notificação de verificação é enfileirada (não enviada de forma síncrona)', function () {
+test('ao registrar, a notificação de verificação é enviada imediatamente', function () {
     Notification::fake();
 
     $this->post('/register', [
@@ -32,7 +32,8 @@ test('ao registrar, a notificação de verificação é enfileirada (não enviad
 
     $user = User::where('email', 'joao@teste.com')->firstOrFail();
 
-    // Garante que a nossa VerifyEmailQueued foi despachada, não a padrão do Laravel.
+    // Garante que a nossa VerifyEmailQueued foi usada, não a padrão do Laravel.
+    // Notification::fake() captura tanto notify() quanto notifyNow().
     Notification::assertSentTo($user, VerifyEmailQueued::class);
 });
 
@@ -55,11 +56,11 @@ test('ao registrar, a notificação de verificação vai para a fila correta (em
     );
 });
 
-test('ao registrar, o usuário é criado e autenticado mesmo que o enfileiramento falhe', function () {
+test('ao registrar, o usuário é criado e autenticado mesmo que o envio de e-mail falhe', function () {
     Notification::fake();
 
-    // Simula falha total no sistema de notificações
-    Notification::shouldReceive('send')->andThrow(new \RuntimeException('Queue connection lost'));
+    // Simula falha total no sistema de notificações (ex.: SMTP indisponível)
+    Notification::shouldReceive('send')->andThrow(new \RuntimeException('SMTP connection failed'));
 
     // O registro deve concluir normalmente — sem erro 500.
     $response = $this->post('/register', [
