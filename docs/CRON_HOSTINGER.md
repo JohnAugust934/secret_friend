@@ -1,4 +1,4 @@
-﻿# Cron na Hostinger (Laravel Scheduler com 1 comando)
+# Cron na Hostinger (Laravel Scheduler com 1 comando)
 
 Este guia esta ajustado para seu caminho real:
 `/home/u810081012/domains/on3digital.com.br/public_html/secretFriend`
@@ -80,11 +80,37 @@ php artisan queue:failed
 
 Se `queue:failed` vier vazio e os comandos retornarem sem erro, cron e notificacoes estao operando corretamente.
 
-## 6) Troubleshooting rapido
+## 6) Troubleshooting rápido
+
+### E-mails de verificação pararam de chegar
+
+**Passo 1** — Diagnóstico rápido (roda SMTP + verifica fila):
+```bash
+php artisan ops:diagnose-email --to=seu@email.com
+```
+Se retornar `❌ FALHA no envio SMTP`, o problema é na credencial/conectividade SMTP.  
+Se retornar `✅ E-mail de diagnóstico enviado com sucesso!`, o SMTP está OK — o problema é que o **worker de fila não está processando** os jobs pendentes.
+
+**Passo 2** — Verificar jobs presos na fila:
+```bash
+php artisan queue:work --stop-when-empty --queue=emails,default --tries=3
+```
+
+**Passo 3** — Verificar se o cron está rodando na Hostinger:
+- Acesse hPanel → Advanced → Cron Jobs e confirme que o cron `schedule:run` está ativo.
+- Se o cron foi removido ou parou, cadastre novamente conforme a seção 3 acima.
+
+**Passo 4** — Limpar cache de configuração e otimizar:
+```bash
+php artisan optimize:clear
+php artisan optimize
+```
+
+---
 
 - Se backup falhar, valide se `mariadb-dump`/`mysqldump` (MySQL/MariaDB) ou `pg_dump` (PostgreSQL) existe no servidor.
 - Em Hostinger, prefira `DB_HOST=127.0.0.1` para evitar tentativas via `::1`.
-- Se health check alertar divergencia, veja `storage/logs/laravel.log`.
+- Se health check alertar divergência, veja `storage/logs/laravel.log`.
 - Se houver falha de e-mail em fila, rode `php artisan queue:failed` e veja `storage/logs/laravel.log`.
 - Sempre que alterar `.env`, rode:
 
@@ -92,3 +118,4 @@ Se `queue:failed` vier vazio e os comandos retornarem sem erro, cron e notificac
 php artisan optimize:clear
 php artisan optimize
 ```
+

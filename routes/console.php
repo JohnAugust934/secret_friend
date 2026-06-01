@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -866,8 +866,79 @@ Artisan::command('ops:test-notifications', function () {
     return 0;
 })->purpose('Send sample operational notifications (info/warning/error) to validate Telegram/email formatting');
 
+Artisan::command('ops:diagnose-email {--to=}', function () {
+    $to = trim((string) $this->option('to'));
+    if ($to === '') {
+        $to = (string) config('services.ops.alert_email', '');
+    }
+    if ($to === '') {
+        $this->error('Informe o destinatário com --to=email@exemplo.com ou configure OPS_ALERT_EMAIL.');
+
+        return 1;
+    }
+
+    $this->info('=== Diagnóstico de E-mail ===');
+
+    // 1) Configuração do mailer
+    $this->info('');
+    $this->info('1) Configuração SMTP:');
+    $this->line('   MAILER : '.config('mail.default'));
+    $this->line('   HOST   : '.config('mail.mailers.smtp.host'));
+    $this->line('   PORT   : '.config('mail.mailers.smtp.port'));
+    $this->line('   SCHEME : '.config('mail.mailers.smtp.scheme'));
+    $this->line('   USER   : '.config('mail.mailers.smtp.username'));
+    $this->line('   FROM   : '.config('mail.from.address'));
+
+    // 2) Jobs pendentes na fila
+    $this->info('');
+    $this->info('2) Fila de jobs:');
+    $pending  = DB::table('jobs')->count();
+    $failed   = DB::table('failed_jobs')->count();
+    $emailJobs = DB::table('jobs')->where('queue', 'emails')->count();
+    $this->line("   Pendentes (total)  : {$pending}");
+    $this->line("   Pendentes (emails) : {$emailJobs}");
+    $this->line("   Failed jobs        : {$failed}");
+
+    if ($failed > 0) {
+        $this->warn('   ⚠ Há jobs com falha. Rode: php artisan queue:failed');
+    }
+
+    // 3) Teste de envio SMTP
+    $this->info('');
+    $this->info("3) Teste de envio SMTP para <{$to}>...");
+    try {
+        $ts = now()->format('d/m/Y H:i:s');
+        Mail::html(
+            "<p>Teste de diagnóstico de e-mail gerado em {$ts} pelo comando <code>ops:diagnose-email</code>.</p>"
+                ."<p>Se você recebeu este e-mail, o SMTP está funcionando corretamente.</p>",
+            function ($mail) use ($to, $ts): void {
+                $mail->to($to)->subject("[Amigo Secreto] Diagnóstico SMTP — {$ts}");
+            }
+        );
+        $this->info('   ✅ E-mail de diagnóstico enviado com sucesso!');
+    } catch (\Throwable $e) {
+        $this->error('   ❌ FALHA no envio SMTP: '.$e->getMessage());
+        Log::error('ops.diagnose_email.smtp_failure', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ]);
+
+        return 1;
+    }
+
+    $this->info('');
+    $this->info('=== Diagnóstico concluído ===');
+    if ($emailJobs > 0) {
+        $this->warn("⚠ Há {$emailJobs} job(s) na fila 'emails' ainda não processados.");
+        $this->warn('  Rode: php artisan queue:work --stop-when-empty --queue=emails,default --tries=3');
+    }
+
+    return 0;
+})->purpose('Diagnose email delivery: check SMTP config, pending jobs, and send a test email');
+
 Schedule::command('queue:work --stop-when-empty --tries=3 --timeout=120')
-    ->everyMinute();
+    ->everyMinute()
+    ->runInBackground();
 
 Schedule::command('ops:health-check')
     ->everyFiveMinutes();

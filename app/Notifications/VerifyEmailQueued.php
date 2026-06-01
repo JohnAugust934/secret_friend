@@ -6,6 +6,7 @@ use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Queue\SerializesModels;
 
 /**
  * Versão enfileirada da notificação de verificação de e-mail.
@@ -19,10 +20,15 @@ use Illuminate\Notifications\Messages\MailMessage;
  * Esta classe herda toda a lógica de geração de URL assinada da VerifyEmail
  * original e adiciona apenas o comportamento de enfileiramento, enviando o
  * job para a fila 'emails' com alta prioridade.
+ *
+ * Nota sobre $notifiable: o Laravel passa o modelo do usuário diretamente
+ * para toMail() durante a execução do job na fila. SerializesModels garante
+ * que modelos Eloquent sejam serializados pelo ID e recarregados do banco
+ * ao desserializar, evitando dados desatualizados ou objetos corrompidos.
  */
 class VerifyEmailQueued extends VerifyEmail implements ShouldQueue
 {
-    use Queueable;
+    use Queueable, SerializesModels;
 
     /**
      * Número de tentativas antes de mover para failed_jobs.
@@ -42,6 +48,14 @@ class VerifyEmailQueued extends VerifyEmail implements ShouldQueue
      */
     public int $timeout = 60;
 
+    /**
+     * Referência ao notifiable capturada em toMail() para uso em buildMailMessage().
+     * Definida em runtime — não é serializada junto com o job.
+     *
+     * @var mixed
+     */
+    protected $notifiable;
+
     public function __construct()
     {
         // Direciona para a fila de e-mails, processada com prioridade máxima
@@ -50,19 +64,18 @@ class VerifyEmailQueued extends VerifyEmail implements ShouldQueue
     }
 
     /**
-     * @var mixed
-     */
-    protected $user;
-
-    /**
-     * Override toMail to capture the notifiable instance.
+     * Override toMail para capturar o notifiable antes de chamar buildMailMessage().
+     *
+     * O fluxo do Laravel é: toMail() → buildMailMessage(). Capturamos o
+     * notifiable aqui para disponibilizá-lo em buildMailMessage() sem
+     * necessidade de serialização de estado entre os dois métodos.
      *
      * @param  mixed  $notifiable
      * @return \Illuminate\Notifications\Messages\MailMessage
      */
     public function toMail($notifiable)
     {
-        $this->user = $notifiable;
+        $this->notifiable = $notifiable;
 
         return parent::toMail($notifiable);
     }
@@ -70,16 +83,19 @@ class VerifyEmailQueued extends VerifyEmail implements ShouldQueue
     /**
      * Monta o e-mail usando a view customizada do projeto.
      *
-     * Mantém o mesmo template visual que já estava configurado no
-     * AppServiceProvider::boot() via VerifyEmail::toMailUsing().
+     * Usa $this->notifiable capturado em toMail(). Se por algum motivo
+     * $notifiable for null (jamais deveria ocorrer no fluxo normal),
+     * usa 'Usuário' como fallback seguro.
      */
     protected function buildMailMessage($url): MailMessage
     {
+        $name = $this->notifiable->name ?? 'Usuário';
+
         return (new MailMessage)
             ->subject('Verifique seu E-mail — Amigo Secreto da Galera')
             ->view('emails.verify-email', [
                 'url'  => $url,
-                'name' => $this->user->name,
+                'name' => $name,
             ]);
     }
 }
