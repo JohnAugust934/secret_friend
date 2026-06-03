@@ -9,7 +9,7 @@ class GroupMember extends Pivot
     // Define explicitamente o nome da tabela
     protected $table = 'group_members';
 
-    // Indica que as chaves estrangeiras são incrementais? Não.
+    // Pivot com id() próprio (incomum): requer $incrementing = true.
     public $incrementing = true;
 
     protected $fillable = [

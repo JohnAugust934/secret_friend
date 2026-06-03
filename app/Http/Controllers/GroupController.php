@@ -32,21 +32,25 @@ class GroupController extends Controller
     {
         $validated = $request->validated();
 
-        // SEGURANÇA: forceCreate() é intencional aqui — owner_id e invite_token são
-        // definidos PROGRAMATICAMENTE (nunca pelo usuário), por isso não pertencem
-        // ao $fillable. forceCreate() é o padrão do Laravel para esse cenário.
-        $group = Group::forceCreate([
-            'name'         => $validated['name'],
-            'event_date'   => $validated['event_date'],
-            'budget'       => $validated['budget'] ?? null,
-            'budget_limit' => $validated['budget_limit'] ?? null,
-            'location'     => $validated['location'] ?? null,
-            'description'  => $validated['description'] ?? null,
-            'owner_id'     => Auth::id(),
-            'invite_token' => Str::upper(Str::random(6)),
-        ]);
+        // SEGURANÇA: forceCreate() é intencional — owner_id e invite_token são definidos
+        // PROGRAMATICAMENTE e jamais devem ser controláveis pelo usuário via request.
+        // DB::transaction() garante atomicidade: se attach() falhar, o grupo não é criado.
+        $group = DB::transaction(function () use ($validated) {
+            $group = Group::forceCreate([
+                'name'         => $validated['name'],
+                'event_date'   => $validated['event_date'],
+                'budget'       => $validated['budget'] ?? null,
+                'budget_limit' => $validated['budget_limit'] ?? null,
+                'location'     => $validated['location'] ?? null,
+                'description'  => $validated['description'] ?? null,
+                'owner_id'     => Auth::id(),
+                'invite_token' => Str::upper(Str::random(6)),
+            ]);
 
-        $group->members()->attach(Auth::id(), ['wishlist' => $validated['wishlist'] ?? null]);
+            $group->members()->attach(Auth::id(), ['wishlist' => $validated['wishlist'] ?? null]);
+
+            return $group;
+        });
 
         return redirect()->route('groups.show', $group);
     }
@@ -114,10 +118,9 @@ class GroupController extends Controller
         }
 
         if (! $group->members()->where('user_id', Auth::id())->exists()) {
+            $request->validate(['wishlist' => 'nullable|string|max:1000']);
             $group->members()->attach(Auth::id(), ['wishlist' => $request->wishlist]);
-            // SEGURANÇA/CACHE: Invalida o cache de HTML de membros imediatamente
-            // após um novo membro entrar, evitando exibir lista desatualizada.
-            Cache::forget("group_members_html_{$group->id}");
+            // Cache invalidado automaticamente pelo GroupMemberObserver::created()
         }
 
         $request->session()->forget('invite_token');
@@ -131,7 +134,7 @@ class GroupController extends Controller
         Gate::authorize('draw', $group);
 
         try {
-            $drawExecuted = DB::transaction(function () use ($group, $drawService) {
+            DB::transaction(function () use ($group, $drawService) {
                 /** @var Group|null $lockedGroup */
                 $lockedGroup = Group::query()->whereKey($group->id)->lockForUpdate()->first();
 
@@ -163,10 +166,6 @@ class GroupController extends Controller
 
                 return true;
             });
-
-            if (! $drawExecuted) {
-                return back()->with('error', 'Ocorreu um erro inesperado.');
-            }
         } catch (\Exception $e) {
             // SEGURANÇA: Nunca expõe getMessage() diretamente ao usuário —
             // pode conter nomes de tabelas, paths internos ou stack traces.
@@ -195,15 +194,17 @@ class GroupController extends Controller
             }
 
             try {
-                Mail::to($pair->santa->email)->queue(new DrawResult($group, $pair->santa, $pair->giftee));
+                $wishlist = GroupMember::where('group_id', $group->id)
+                    ->where('user_id', $pair->giftee->id)
+                    ->value('wishlist');
+                Mail::to($pair->santa->email)->queue(new DrawResult($group, $pair->santa, $pair->giftee, $wishlist));
             } catch (\Throwable $e) {
                 report($e);
                 $mailErrors++;
             }
         }
 
-        $latestRound = Pairing::where('group_id', $group->id)->max('draw_round') ?? 1;
-        $isRedraw    = $latestRound > 1;
+        $isRedraw = $latestRound > 1;
 
         $successMsg = $isRedraw
             ? "Re-sorteio #{$latestRound} realizado! Os e-mails estao sendo enviados em segundo plano."
@@ -363,21 +364,26 @@ class GroupController extends Controller
             $iterations = 0;
 
             while (! connection_aborted() && $iterations < 12) {
-                $group->load('members');
-                $html    = view('groups.partials.members-list', compact('group'))->render();
-                $payload = [
-                    'html'    => $html,
-                    'count'   => $group->members->count(),
-                    'options' => $group->members->map(fn ($member) => [
-                        'id'   => $member->id,
-                        'name' => $member->name,
-                    ])->values(),
-                ];
+                try {
+                    $group->load('members');
+                    $html    = view('groups.partials.members-list', compact('group'))->render();
+                    $payload = [
+                        'html'    => $html,
+                        'count'   => $group->members->count(),
+                        'options' => $group->members->map(fn ($member) => [
+                            'id'   => $member->id,
+                            'name' => $member->name,
+                        ])->values(),
+                    ];
 
-                echo "event: members\n";
-                echo 'data: ' . json_encode($payload, JSON_UNESCAPED_UNICODE) . "\n\n";
-                @ob_flush();
-                @flush();
+                    echo "event: members\n";
+                    echo 'data: ' . json_encode($payload, JSON_UNESCAPED_UNICODE) . "\n\n";
+                    @ob_flush();
+                    @flush();
+                } catch (\Throwable $e) {
+                    report($e);
+                    break;
+                }
 
                 $iterations++;
                 sleep(5);

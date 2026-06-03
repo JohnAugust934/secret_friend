@@ -27,14 +27,14 @@ class DrawResult extends Mailable implements ShouldQueue
 
     public ?string $wishlist;
 
-    public function __construct(Group $group, User $santa, User $giftee)
+    public function __construct(Group $group, User $santa, User $giftee, ?string $wishlist = null)
     {
-        $this->santaName = $santa->name;
+        $this->santaName  = $santa->name;
         $this->gifteeName = $giftee->name;
-        $this->groupName = $group->name;
-        $this->budget = (float) ($group->budget ?? 0);
-        $this->eventDate = (string) ($group->event_date?->format('Y-m-d') ?? now()->toDateString());
-        $this->wishlist = $giftee->pivot?->wishlist;
+        $this->groupName  = $group->name;
+        $this->budget     = (float) ($group->budget ?? 0);
+        $this->eventDate  = (string) ($group->event_date?->format('Y-m-d') ?? now()->toDateString());
+        $this->wishlist   = $wishlist;
     }
 
     /**

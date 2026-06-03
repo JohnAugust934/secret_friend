@@ -30,11 +30,16 @@ jobs:
           composer install --no-interaction --prefer-dist --no-progress
           npm ci
 
+      - name: Security audit
+        run: composer audit
+
       - name: Prepare app
         run: |
           cp .env.example .env
           php artisan key:generate
           touch database/database.sqlite
+          php artisan migrate --force
+          php artisan migrate:rollback --force
           php artisan migrate --force
 
       - name: Lint (Pint)

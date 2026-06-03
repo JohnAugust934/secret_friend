@@ -149,23 +149,24 @@ class DrawService
         return false;
     }
 
+    // CONTRATO: Este método deve ser invocado dentro de uma DB::transaction() com
+    // lockForUpdate() (ver GroupController::draw()). A transaction externa garante
+    // a atomicidade — não é necessária uma inner transaction aqui.
     private function savePairingsBatch(Group $group, array $pairs, int $currentRound): void
     {
-        DB::transaction(function () use ($group, $pairs, $currentRound) {
-            // Remove apenas os pares do round corrente (segurança para re-tentativas)
-            // Rounds anteriores ficam intactos como histórico.
-            Pairing::where('group_id', $group->id)
-                ->where('draw_round', $currentRound)
-                ->delete();
+        // Remove apenas os pares do round corrente (segurança para re-tentativas).
+        // Rounds anteriores ficam intactos como histórico.
+        Pairing::where('group_id', $group->id)
+            ->where('draw_round', $currentRound)
+            ->delete();
 
-            foreach ($pairs as $pair) {
-                Pairing::create($pair);
-            }
+        foreach ($pairs as $pair) {
+            Pairing::create($pair);
+        }
 
-            // SEGURANÇA: forceFill() é intencional — is_drawn foi removido do $fillable
-            // para bloquear mass assignment por usuários, mas aqui é definido pelo serviço
-            // internamente. DB::raw('true') garante compatibilidade com PostgreSQL.
-            $group->forceFill(['is_drawn' => DB::raw('true')])->save();
-        });
+        // SEGURANÇA: forceFill() é intencional — is_drawn foi removido do $fillable
+        // para bloquear mass assignment por usuários, mas aqui é definido pelo serviço
+        // internamente. DB::raw('true') garante compatibilidade com PostgreSQL.
+        $group->forceFill(['is_drawn' => DB::raw('true')])->save();
     }
 }
